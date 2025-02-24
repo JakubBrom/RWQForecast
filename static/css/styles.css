@@ -1,0 +1,110 @@
+/* Fonts */
+body {
+    font-family: 'Play', sans-serif;
+  }
+
+hallowenbody {
+    font-family: 'Nosifer', sans-serif;
+    color: #dc0909;
+  }
+
+#loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    display: none;
+}
+
+#prekryti {
+    display: none; /* Skryté na začátku */
+    position: fixed; /* Překryje celou stránku */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Poloprůhledné pozadí */
+    z-index: 1000; /* Zobrazí se nad ostatním obsahem */
+    justify-content: center; /* Vycentruje obsah vertikálně */
+    align-items: center; /* Vycentruje obsah horizontálně */
+    display: flex; /* Zajistí vycentrování */
+}
+
+#dialog {
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 50px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+
+/* Define the spinner */
+
+.loader {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+    margin: auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+}
+
+/* Define the home page */
+
+.main-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.container-flex {
+    min-height: 70vh;
+    background: url('static/images/bg/P5110677.JPG') no-repeat center center;
+    background-size: cover;
+}
+
+.main-column {
+    flex: 80%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: rgb(70, 70, 70);
+}
+
+.main-column div {
+    background: rgba(240, 240, 240, 0.7);
+    padding: 20px;
+    border-radius: 10px;
+    width: 100vw;
+}
+
+.side {
+    flex: 20%;
+    text-align: left;
+    background: rgba(240, 240, 240, 0.9);
+    padding: 20px;
+    overflow-y: auto;
+    height: 70vh;
+}

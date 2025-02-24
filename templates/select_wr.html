@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block content %}
+<body>
+    <h1>Water reservoir selection</h1>
+    <p>Zoom to the area of interest and select the water reservoir by clicking on its border line</p>
+    
+    
+    <div id="map" style="width: 100%; height: 600px;">
+        <div id="loading">Uploading data...</div>
+    </div>
+
+    <form id="waterbody-form" style="margin-top: 20px;">
+        <div class="container mt-3">
+            <label for="name" class="form-label">Reservoir name:</label>
+            <input type="text" class="form-control" id="name" name="name" readonly><br>
+        
+            <label for="osm_id" class="form-label">OSM ID:</label>
+            <input type="text" class="form-control" id="osm_id" name="osm_id" readonly><br>
+            
+            <label for="wq_feature_sel" class="form-label">Water quality feature:</label>
+            <select class="form-select" id="sel_wq" name="wq_feature_sel">
+                <option value="ChlA">ChlA</option>
+                <option value="TSS" disabled>TSS</option>
+                <option value="PC" disabled>PC</option>
+                <option value="APC" disabled>APC</option>
+                <option value="PE" disabled>PE</option>
+                <option value="ChlB" disabled>ChlB</option>
+                <option value="CX" disabled>CX</option>
+            </select>
+            
+            <button type="button" class="btn btn-primary" id="confirm-btn-processing" style="margin-top: 20px;">Confirm selection</button>
+        </div>
+    </form>
+
+    <div id="prekryti" style="display: none;">
+        <div id="dialog">
+            <h2>Do you want to run the analysis?</h2>
+            <p id="souhrnInformaci">Zde bude souhrn informací.</p>
+            <button type="button" class="btn btn-outline-primary" id="potvrditDialog">OK</button>
+            <button type="button" class="btn btn-outline-secondary" id="zrusitDialog">Cancel</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() { // Důležité!
+
+            var map = L.map('map').setView([48.8, 14.8], 5);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            let confirmListener = null;
+            let selectedLayer = null;
+
+            var waterBodiesLayer = L.geoJSON(null, {
+                style: function () {
+                    return { color: "blue", weight: 4 };
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.bindPopup("Name: " + (feature.properties.name || "Noname") + "<br>" +
+                                    "OSM_ID: " + (feature.properties.osm_id || null)
+                    );
+
+                    layer.on('click', function () {
+                        if (selectedLayer) {
+                            waterBodiesLayer.resetStyle(selectedLayer);
+                        }
+                        selectedLayer = this;
+                        this.setStyle({ color: "red" });
+
+                        document.getElementById("osm_id").value = feature.properties.osm_id;
+                        document.getElementById("name").value = feature.properties.name;
+                    });
+                }
+            }).addTo(map);
+
+            const loadingIndicator = document.getElementById("loading");
+
+            function showLoading() {
+                loadingIndicator.style.display = "block";
+            }
+
+            function hideLoading() {
+                loadingIndicator.style.display = "none";
+            }
+
+            function loadWaterBodies() {
+                const currentZoom = map.getZoom();  
+                var geojsonData = null;
+                waterBodiesLayer.clearLayers();
+                console.log("Current zoom is " + currentZoom);  
+                if (currentZoom < 11) {                              
+                    if (geojsonData) {
+                        waterBodiesLayer.clearLayers();
+                        geojsonData = null;
+                    }
+                    return;
+                }
+                var bounds = map.getBounds();
+                var bbox = {
+                    south: bounds.getSouthWest().lat,
+                    west: bounds.getSouthWest().lng,
+                    north: bounds.getNorthEast().lat,
+                    east: bounds.getNorthEast().lng
+                };
+
+                showLoading(); // Zobrazit ukazatel načítání
+
+                var overpassUrl = "https://overpass-api.de/api/interpreter";
+                var overpassQuery = `
+                    [out:json][timeout:25];
+                    (
+                    way["natural"="water"](${bbox.south}, ${bbox.west}, ${bbox.north}, ${bbox.east});
+                    relation["natural"="water"](${bbox.south}, ${bbox.west}, ${bbox.north}, ${bbox.east});
+                    );                
+                    convert item ::=::,::geom=geom(),_osm_type=type(),_id=id();
+                    out geom;
+                `;
+
+                fetch(overpassUrl, {
+                    method: "POST",
+                    body: overpassQuery,
+                    headers: { "Content-Type": "text/plain" }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        geoJsonData = {
+                            type: "FeatureCollection",
+                            features: data.elements
+                            .filter(el => el.geometry) // Pouze prvky s geometrií
+                            .flatMap(el => {
+                                // Rozdělíme geometrie podle typu
+                                if (el.geometry.type === "GeometryCollection") {
+                                    return el.geometry.geometries.map(geom => ({
+                                        type: "Feature",
+                                        properties: { 
+                                            name: el.tags.name || "Noname",
+                                            osm_id: el.tags._id || null
+                                        },
+                                        geometry: geom // Přidáme každou geometrii samostatně
+                                    }));
+                                } else {
+                                    return {
+                                        type: "Feature",
+                                        properties: { 
+                                            name: el.tags.name || "Noname",
+                                            osm_id: el.tags._id || null
+                                        },
+                                        geometry: el.geometry // Standardní geometrie
+                                    };
+                                }
+                            })
+                    };
+                    
+                    waterBodiesLayer.addData(geoJsonData); // Přidání dat do mapy
+                    })
+                    .catch(error => console.error("Error during reading data from Overpass API:", error))
+                    .finally(() => hideLoading()); // Skrytí ukazatele načítání
+            }
+
+            map.on('moveend', loadWaterBodies);
+            loadWaterBodies();
+
+            // Získání prvků dialogu a nastavení posluchačů UDÁLOSTÍ ZDE!
+            const confirmButton = document.getElementById("confirm-btn-processing");
+            const prekryti = document.getElementById("prekryti");
+            const dialog = document.getElementById("dialog");
+            const souhrnInformaci = document.getElementById("souhrnInformaci");
+            const potvrditDialog = document.getElementById("potvrditDialog");
+            const zrusitDialog = document.getElementById("zrusitDialog");
+
+            // Skrytí dialogu na začátku
+            prekryti.style.display = "none";
+
+            confirmButton.addEventListener("click", function() {
+                if (selectedLayer) {
+                    souhrnInformaci.textContent = "Confirm the analysis for the reservoir: " + document.getElementById("name").value + " (OSM ID: " + document.getElementById("osm_id").value + ")?";
+                    prekryti.style.display = "flex";
+                } else {
+                    alert("Select the water reservoir first");
+                }
+            });
+
+            potvrditDialog.addEventListener("click", function() {
+                if (selectedLayer) {
+                    var osm_id = document.getElementById("osm_id").value;
+                    var wname = document.getElementById("name").value;
+                    var wq_par = document.getElementById("sel_wq").value;
+                    const vertices = selectedLayer.getLatLngs();
+                    const firstVertex = vertices[0];
+
+                    // Uzavření dialogu IHNED po kliknutí na "Potvrdit"
+                    prekryti.style.display = "none";
+
+                    // PŘESMĚROVÁNÍ IHNED PO POTVRZENÍ
+                    window.location.href = "/processing?osm_id=" + osm_id; // Přesměrování s parametrem
+
+                    fetch('/select_waterbody', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ osm_id: osm_id, name: wname, wq_param: wq_par, firstVrt: firstVertex })
+                    })
+                        .then(response => response.json())
+                        .then(data => {                            
+                            console.log("Backend process finished:", data);
+                        })
+                        .catch(error => {
+                            console.error("Error during sending the data", error);
+                            alert("The error during sending the data to the server has occured");
+                            prekryti.style.display = "none";
+                        });
+                }
+            });
+
+            zrusitDialog.addEventListener("click", function() {
+                prekryti.style.display = "none";
+            });
+        }); // Konec události DOMContentLoaded
+    </script>
+</body>
+{% endblock%}

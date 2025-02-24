@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container d-flex justify-content-center align-items-center vh-100">
+    <div class="card shadow p-4" style="width: 350px;">
+        <h3 class="text-center">Reset Password</h3>
+        <div class="mb-3">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ messages[0][1] }}
+                </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="/reset_password">
+                <div class="mb-3">
+                    <label for="email" class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Add e-mail">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Reset Password</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock%}
