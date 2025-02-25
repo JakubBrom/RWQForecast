@@ -102,7 +102,7 @@ BROM, Jakub, Václav NEDBAL, Blanka TESAŘOVÁ a Jan KUNTZMAN, 2024. RWQForecast
 
 # RWQForecast documentation
 
-The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. $${\color{red}The computational unit is implemented in the RWQForecast services, however it is not linked with the frontend yet}$$.
+The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. $${\color{red}The \ computational \ unit \ is \ implemented \ in \ the \ RWQForecast \ services, \ however \ it \ is \ not \ linked \ with \ the \ frontend \ yet}$$.
 ## User interface
 
 The RWQForecast system is designed to be user-friendly and intuitive. Some parts are still under development. The following tutorial provides a step-by-step guide to using the system:
