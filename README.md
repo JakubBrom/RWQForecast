@@ -35,7 +35,7 @@ The source code is available at: https://github.com/JakubBrom/RWQForecast. The s
 
 The testing web page is available at http://160.217.162.143:8080/ (can be unavailable because the development). The later version will be placed at https://rwqforecast.com $${\color{red}(upcoming)}$$.
 
-<font color="red">Testing data available for Orlík, Velký Tisý, Římovská přehrada and Encoro de Belesar</font>.
+$${\color{red}Testing data available for Orlík, Velký Tisý, Římovská přehrada and Encoro de Belesar}$$.
 
 ## Authors and Collaborators
 
@@ -85,7 +85,7 @@ BROM, Jakub, Václav NEDBAL, Blanka TESAŘOVÁ a Jan KUNTZMAN, 2024. RWQForecast
         <li>Helmholtz Centre Potsdam - GFZ German Research Centre for Geosciences, Germany (Dr. Mohammedmehdi Saberioon)</li>
         <li>Universidad Santiago de Compostela, Spain (prof. Fernando Cobo)</li>
         <li>Universidad Autónoma de Madrid, Spain (prof. Antonio Quesada del Coral)</li>
-        <li>Norwegian University of Science and Technology, Norway (Dr. Marcos Xosé Álvarez-Cid</li>
+        <li>Norwegian University of Science and Technology, Norway (Dr. Marcos Xosé Álvarez-Cid)</li>
         <li>International Iberian Nanotechnology Laboratory - INL, Portugal (Dr. Begoña Espiña)</li>
     </ul>
 </p>
@@ -102,8 +102,7 @@ BROM, Jakub, Václav NEDBAL, Blanka TESAŘOVÁ a Jan KUNTZMAN, 2024. RWQForecast
 
 # RWQForecast documentation
 
-The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. <font color="red">The computational unit is implemented in the RWQForecast services, however it is not linked with the frontend yet.</font> 
-
+The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. $${\color{red}The computational unit is implemented in the RWQForecast services, however it is not linked with the frontend yet}$$.
 ## User interface
 
 The RWQForecast system is designed to be user-friendly and intuitive. Some parts are still under development. The following tutorial provides a step-by-step guide to using the system:
@@ -113,7 +112,7 @@ The RWQForecast system is designed to be user-friendly and intuitive. Some parts
 - The user registers using the "Sign Up" tab.
 - After successful registration, the user receives an email with a confirmation link.
 - After confirming the email, the user can log in to the system.
-- The user logs in to their OpenEO user account to obtain a token to perform analyses. If the user does not have an OpenEO account, they must register (<font color="red">upcoming</font>).
+- The user logs in to their OpenEO user account to obtain a token to perform analyses. If the user does not have an OpenEO account, they must register $${\color{red}(upcoming)}$$.
         
 ### 2. Logging in
             
@@ -128,14 +127,14 @@ Missing data in the time series can be filled in using the "Update dataset" butt
 
 A table displays information about the reservoir and the dataset after confirmation.
 The time series line chart presents the average, median, and confidence intervals.
-The forecast chart shows a two-week prediction as an interactive line graph (<font color="red">upcoming</font>).
-Time series and forecast data can be downloaded as a value table (<font color="red">upcoming</font>).
+The forecast chart shows a two-week prediction as an interactive line graph $${\color{red}(upcoming)}$$.
+Time series and forecast data can be downloaded as a value table $${\color{red}(upcoming)}$$.
             
-The user can display the spatial distribution of values for the selected reservoir. After selection of the particular date of the data acquisition and confirmation, a table with statistics for the reservoir and selected date is generated (<font color="red">upcoming</font>) and an interactive graph visualizing the spatial distribution of values across the reservoir is displayed.
+The user can display the spatial distribution of values for the selected reservoir. After selection of the particular date of the data acquisition and confirmation, a table with statistics for the reservoir and selected date is generated $${\color{red}(upcoming)}$$ and an interactive graph visualizing the spatial distribution of values across the reservoir is displayed.
 
-Data in the form of a point vector layer can be downloaded by clicking the "Download data" button (<font color="red">upcoming</font>).
+Data in the form of a point vector layer can be downloaded by clicking the "Download data" button $${\color{red}(upcoming)}$$.
 
-Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method (<font color="red">upcoming</font>).
+Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method $${\color{red}(upcoming)}$$.
 
 For adding a new water reservoir, user can click the "Add new reservoir" button which goes to the "Select reservoir" window. The page provides selection of the reservoir from the map for data processing. After confirming the selection the system requests confirmation again and then initiates the analysis.
 
@@ -169,7 +168,7 @@ Satellite image data availability is irregular due to weather conditions, especi
     
 ### 6. Forecasting
     
-The model estimates the probable evolution of time series using historical data and meteorological information as coregressors. The Long Short-Term Memory (LSTM) method is used for prediction, generating forecasts for all selected points within the reservoir. <font color="red">upcoming</font>)
+The model estimates the probable evolution of time series using historical data and meteorological information as coregressors. The Long Short-Term Memory (LSTM) method is used for prediction, generating forecasts for all selected points within the reservoir. $${\color{red}(upcoming)}$$
     
 ### 7. Visualization of results and statistical analysis
     
@@ -184,7 +183,7 @@ Missing data are handled using the connectgaps method, and smoothing is applied 
 Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method.
     
     
-### 8. User data export (<font color="red">upcoming</font>)
+### 8. User data export $${\color{red}(upcoming)}$$
 
 The application allows users to download time series data for a selected reservoir as a data table, as well as spatial data for individual dates in the form of a point vector layer in the WGS84 coordinate system.
 
