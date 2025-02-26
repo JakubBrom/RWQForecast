@@ -35,8 +35,8 @@ The source code is available at: https://github.com/JakubBrom/RWQForecast. The s
 
 The testing web page is available at http://160.217.162.143:8080/ (can be unavailable because the development). The later version will be placed at https://rwqforecast.com $${\color{red}(upcoming)}$$.
 
-[!NOTE]
-Testing data available for Orlík, Velký Tisý, Římovská přehrada and Encoro de Belesar
+>[!NOTE]
+>Testing data available for Orlík, Velký Tisý, Římovská přehrada and Encoro de Belesar
 
 $${\textcolor{red}{Testing \ data \ available \ for \ Orlík, \ Velký \ Tisý, \ Římovská \ přehrada \ and \ Encoro \ de \ Belesar}}$$.
 
