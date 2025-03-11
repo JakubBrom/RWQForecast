@@ -1,8 +1,9 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from dotenv import load_dotenv
 from flask_mail import Mail
+from dotenv import load_dotenv, set_key
+from cryptography.fernet import Fernet
 import os
 
 load_dotenv()
@@ -36,6 +37,14 @@ def create_app():
     app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
     app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
+    
+    # OpenEO connection encryption
+    fernet_secret_key = os.getenv('OPENEO_SECRET_KEY')
+    if fernet_secret_key is None:
+        fernet_secret_key = Fernet.generate_key().decode()
+        set_key(".env", "OPENEO_SECRET_KEY", fernet_secret_key)
+    
+    app.config['OPENEO_SECRET_KEY'] = fernet_secret_key   
     
     mail = Mail(app)      
     
