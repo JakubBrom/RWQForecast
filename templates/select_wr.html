@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 <body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ messages[0][1] }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
     <h1>Water reservoir selection</h1>
     <p>Zoom to the area of interest and select the water reservoir by clicking on its border line</p>
     
@@ -195,7 +206,7 @@
                     // Uzavření dialogu IHNED po kliknutí na "Potvrdit"
                     prekryti.style.display = "none";
 
-                    // PŘESMĚROVÁNÍ IHNED PO POTVRZENÍ
+                    // PŘESMĚROVÁNÍ IHNED PO POTVRZENÍ --> posunout o kus dál až po stažení vrstvy a výpočtu plochy --> načíst plochu a buď vypsat, že je plocha malá nebo je v DB a nebo spustit proces výpočtu.
                     window.location.href = "/processing?osm_id=" + osm_id; // Přesměrování s parametrem
 
                     fetch('/select_waterbody', {
