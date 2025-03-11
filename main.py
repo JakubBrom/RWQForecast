@@ -22,6 +22,7 @@ from rasterio.transform import from_origin
 from scipy.ndimage import zoom
 from datetime import datetime, timedelta
 from . import db, mail
+from cryptography.fernet import Fernet
 
 
 main = Blueprint('main',__name__)
@@ -29,6 +30,7 @@ main = Blueprint('main',__name__)
 # DB tables
 water_reservoirs = 'reservoirs'
 db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
+db_user_credentials = 'user_credentials'
 
 # Create the AIHABs object
 # aihabs = AIHABs()     # TODO: create the AIHABs object, uncomment the line
@@ -78,6 +80,43 @@ def contacts():
 @main.route("/gdpr")
 def gdpr():
     return render_template('gdpr.html')
+
+@main.route("/oeo_credentials_howto")
+@login_required
+def oeo_credentials_howto():
+    return render_template('oeo_howto.html')
+
+@main.route("/oeo_form")
+@login_required
+def oeo_form():
+    return render_template("credentials.html")
+
+@main.route("/get_oeo_credentials", methods=["POST"])
+@login_required
+def get_oeo_credentials():
+    """ Přesměruje uživatele na OIDC autentizaci """
+    
+    clid = request.form.get('clid')
+    clse = request.form.get('clse')
+    
+    # Create the unique key for the clid and clse
+    credential_key = clid[3:7] + clse[-4:]
+       
+    # Encrypting the credentials
+    cipher_suite = Fernet(current_app.config['OPENEO_SECRET_KEY'].encode())
+    encrypted_clid = cipher_suite.encrypt(clid.encode()).decode()
+    encrypted_clse = cipher_suite.encrypt(clse.encode()).decode()
+    
+    # Saving data to the DB
+    query = text(f"INSERT INTO {db_user_credentials} (user_id, clid, clse, credential_key) VALUES ({current_user.id}, '{encrypted_clid}', '{encrypted_clse}', '{credential_key}') ON CONFLICT DO NOTHING;")
+    
+    with db.engine.connect() as conn:
+        conn.execute(query)
+        conn.commit()
+        conn.close()
+    
+    return redirect(url_for('main.results'))
+    
 
 @main.route('/select_waterbody', methods=['POST'])
 @login_required
@@ -558,25 +597,7 @@ def sendInfoEmail(e_adress, subject, content):
     :param subject: E-mail subject
     :param content: E-mail content
     """
-
-    # msg = EmailMessage()
-    # msg['Subject'] = subject
-    # msg['From'] = current_app.config('MAIL_USERNAME')         # define e-mail adress
-    # msg['To'] = e_adress
-    # msg.set_content(f'{content}\n\nYour AIHABs Team')
-
-    # try:
-    #     with smtplib.SMTP_SSL(current_app.config('MAIL_SERVER'), current_app.config('MAIL_PORT')) as s:  # define SMTP server
-    #         # s.starttls()
-    #         print(f"Logging in to the e-mail server: {current_app.config('MAIL_SERVER')}")
-    #         s.login(current_app.config('MAIL_USERNAME'), current_app.config('MAIL_PASSWORD')) # Použijte heslo aplikace!
-    #         print("Logged in to the e-mail server.")
-    #         s.send_message(msg)
-    #         print("The e-mail has been sent.")
-    #     print(f"The e-mail has been sent to address: {e_adress}")
-    # except Exception as e:
-    #     print(f"E-mail sending error: {e}")
-        
+            
     try:
         msg = Message(subject, sender=current_app.config['MAIL_USERNAME'], recipients=[e_adress])
         msg.body = content
