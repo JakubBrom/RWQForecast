@@ -6,33 +6,75 @@
       Hi {{ name }} !
     </h1>
 
-  <h2 class="title">Profile</h2>
+    </br>
 
-  <h4 class="title">Change Password</h4>
+  <div class="accordion" id="accordeon-profile">
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseOne" aria-expanded="false" aria-controls="flush-collapseOne">
+          <b>Change Password</b>
+        </button>
+      </h2>
+      
+      <div id="flush-collapseOne" class="accordion-collapse collapse" data-bs-parent="#accordeon-profile">
+        
+        <div class="accordion-body">   
 
-  <div class="container d-flex justify-content-left">
-    <div class="p-4" style="width: 350px;">      
-        <div class="mb-3">
+          <div class="container d-flex justify-content-left">
+            <div class="p-4" style="width: 350px;">      
+              <div class="mb-3">
 
-          {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ messages[0][1] }}
-                </div>
-            {% endfor %}
-            {% endif %}
-            {% endwith %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                  {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                          {{ messages[0][1] }}
+                      </div>
+                  {% endfor %}
+                  {% endif %}
+                  {% endwith %}
 
-          <form method="POST" action="/change_password">
-            <input type="password" class="form-control" name="current_password" placeholder="Current Password" required></br>
-            <input type="password" class="form-control" name="new_password" placeholder="New Password" required></br>
-            <input type="password" class="form-control" name="confirm_password" placeholder="Confirm New Password" required></br>
-            <button type="submit" class="btn btn-primary w-100">Reset Password</button>
-          </form>
+                <form method="POST" action="/change_password">
+                  <input type="password" class="form-control" name="current_password" placeholder="Current Password" required></br>
+                  <input type="password" class="form-control" name="new_password" placeholder="New Password" required></br>
+                  <input type="password" class="form-control" name="confirm_password" placeholder="Confirm New Password" required></br>
+                  <button type="submit" class="btn btn-primary w-100">Reset Password</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
         </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseTwo" aria-expanded="false" aria-controls="flush-collapseTwo">
+          <b>OpenEO Client Credentials</b>
+        </button>
+      </h2>
+      <div id="flush-collapseTwo" class="accordion-collapse collapse" data-bs-parent="#accordeon-profile">
+        
+        <div class="accordion-body">
+
+          <p>OpenEO Client Credentials provided by the Copernicus DataSpace Ecosystem enable access to data from the system and are essential for further analysis. Detailed information on Client Credentials and how to obtain them can be found <a href="/oeo_credentials_howto">here</a> and <a href="https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Overview/Authentication.html#registering-oauth-client">here</a>.</p>
+          <p>Number of active keys: {{ nkeys }}</p>
+
+          <div class="container d-flex justify-content-left">
+            <div class="p-4" style="width: 350px;">      
+              <div class="mb-3">
+                <form action="/oeo_form">
+                  <button type="submit" class="btn btn-primary w-100 ">Add new Credentials</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
 </div>
 
 {% endblock%}
