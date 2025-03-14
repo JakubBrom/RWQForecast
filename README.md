@@ -36,7 +36,7 @@ The source code is available at: https://github.com/JakubBrom/RWQForecast. The s
 The testing web page is available at http://160.217.162.143:8080/ (can be unavailable because the development). The later version will be placed at https://rwqforecast.com $${\color{red}(upcoming)}$$.
 
 >[!NOTE]
->Testing data available for Orlík, Velký Tisý, Římovská přehrada and Encoro de Belesar
+>Testing data available for some reservoirs now
 
 ## Authors and Collaborators
 
@@ -106,7 +106,7 @@ BROM, Jakub, Václav NEDBAL, Blanka TESAŘOVÁ a Jan KUNTZMAN, 2024. RWQForecast
 The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. 
 
 >[!NOTE]
->The computational unit is implemented in the RWQForecast services, however it is not linked with the frontend yet.
+>The computational unit is implemented in the RWQForecast services (see [RWQForecast-engine](https://github.com/JakubBrom/RWQForecast-engine)), however it is not linked with the frontend yet.
 
 ## User interface
 
@@ -117,7 +117,6 @@ The RWQForecast system is designed to be user-friendly and intuitive. Some parts
 - The user registers using the "Sign Up" tab.
 - After successful registration, the user receives an email with a confirmation link.
 - After confirming the email, the user can log in to the system.
-- The user logs in to their OpenEO user account to obtain a token to perform analyses. If the user does not have an OpenEO account, they must register $${\color{red}(upcoming)}$$.
         
 ### 2. Logging in
             
@@ -126,9 +125,13 @@ The RWQForecast system is designed to be user-friendly and intuitive. Some parts
         
 ### 3. Analysis
             
-From the reservoir selection form or the map window, the user selects the desired reservoir, the evaluation parameter, and the prediction model.
-After confirming the selection, the time series for the chosen parameter and reservoir is displayed for all available data.
-Missing data in the time series can be filled in using the "Update dataset" button, which starts the process of downloading data and feature calculation.
+The user selects the desired reservoir, evaluation parameter, and prediction model either through the reservoir selection form or from the map window.
+
+After confirming the selection, the time series for the chosen parameter and reservoir is displayed with all available data. Missing data (part of time series) can be filled using the "Update dataset" button, which initiates the process of data retrieval and feature computation.
+
+To perform analyses, the user must set up OpenEO/CDSE access credentials. The system will request these credentials during or before the first analysis. The credentials can be obtained through a Copernicus DataSpace Ecosystem account. If the user does not have an OpenEO account, they must register first.
+
+For parallel computing, multiple OpenEO credentials can be used, but a single key cannot be utilized for multiple analyses simultaneously.
 
 A table displays information about the reservoir and the dataset after confirmation.
 The time series line chart presents the average, median, and confidence intervals.
