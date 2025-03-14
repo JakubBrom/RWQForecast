@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ messages[0][1] }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+    {% endif %}
+{% endwith %}
+
 <h1>Water quality analysis</h1>
 
 <div class="container-fluid" style="background-color: rgb(242, 242, 242);">
@@ -39,10 +50,7 @@
                 
                 <button type="button" class="btn btn-primary" id="confirm-btn">Confirm selection</button>
 
-                <!-- TODO: upravit podle toho, jestli budou klíče nebo ne -->
-                <a href='/oeo_form'>
-                <button type="button" class="btn btn-success" id="update-btn">Update dataset</button>
-                </a>
+                <button type="button" class="btn btn-success" id="update-btn" onclick="window.location.href='/start-analysis'">Update dataset</button>
                 
                 <a href='/select'>
                     <button type="button" class="btn btn-success" id="new-wr-btn" href='/select'>Add new reservoir</button>
@@ -255,9 +263,7 @@
         });
     };
 
-    
     zoomMapToPolygon('/get_bounds')
-
 </script>
 
 <script src="static/js/ts-plots.js">
