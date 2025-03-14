@@ -23,9 +23,13 @@ from scipy.ndimage import zoom
 from datetime import datetime, timedelta
 from . import db, mail
 from cryptography.fernet import Fernet
+import openeo
 
 
 main = Blueprint('main',__name__)
+
+OPENEO_PROVIDER = 'CDSE'
+OPENEO_BACKEND = "https://openeo.dataspace.copernicus.eu"
 
 # DB tables
 water_reservoirs = 'reservoirs'
@@ -49,7 +53,14 @@ def index():
 @main.route("/profile")
 @login_required
 def profile():
-    return render_template('profile.html', name=current_user.name)
+    # Get number of OEO client credentials from DB 
+    query = text(f"SELECT COUNT(*) FROM {db_user_credentials} WHERE user_id = '{current_user.id}';")
+    
+    with db.engine.connect() as conn:
+        n_keys = conn.execute(query).scalar()
+        conn.close()
+    
+    return render_template('profile.html', name=current_user.name, nkeys=n_keys)
 
 @main.route("/home")
 def home():
@@ -91,19 +102,30 @@ def oeo_credentials_howto():
 def oeo_form():
     return render_template("credentials.html")
 
+
 @main.route("/get_oeo_credentials", methods=["POST"])
 @login_required
 def get_oeo_credentials():
-    """ Přesměruje uživatele na OIDC autentizaci """
+    """ Create the unique key for the clid and clse and save them to the DB """
     
     clid = request.form.get('clid')
     clse = request.form.get('clse')
     
+    # Validation of credentials
+    valid = ckeys_valid(clid, clse)
+    
+    if not valid:
+        flash("The key is not valid. Use another one", "warning")
+        
+        return render_template("credentials.html")
+    
     # Create the unique key for the clid and clse
-    credential_key = clid[3:7] + clse[-4:]
+    credential_key = clid[3:7] + clse[-4:] + "_" + str(current_user.id)
        
     # Encrypting the credentials
-    cipher_suite = Fernet(current_app.config['OPENEO_SECRET_KEY'].encode())
+    openeo_secret_key = current_app.config.get('OPENEO_SECRET_KEY')
+    cipher_suite = Fernet(openeo_secret_key.encode())
+        
     encrypted_clid = cipher_suite.encrypt(clid.encode()).decode()
     encrypted_clse = cipher_suite.encrypt(clse.encode()).decode()
     
@@ -115,8 +137,152 @@ def get_oeo_credentials():
         conn.commit()
         conn.close()
     
-    return redirect(url_for('main.results'))
+    # Check the availability of the key
+    get_available_key()
     
+    flash("The OEO Credentials are available now. Try new analysis or add another credentials.", "info")
+    
+    return render_template("credentials.html")
+    # return redirect(url_for("main.results"))     # TODO: je to ok??
+
+def get_oeo_key_from_db():
+    """ Get the OEO credentials from the DB """
+    
+    query_test = text(f"SELECT clid FROM {db_user_credentials} WHERE user_id = {current_user.id};")
+    query_get_creds = text(f"SELECT clid, clse, credential_key FROM {db_user_credentials} WHERE user_id = {current_user.id} AND status = 'True';")
+    
+    with db.engine.connect() as conn:
+        keys_exists = conn.execute(query_test).fetchone()
+        keys_available = conn.execute(query_get_creds).fetchone()
+        conn.close()
+        
+    return keys_exists, keys_available
+
+def keys_decrypt(keys):
+    """ Encrypt OEO credential keys taken from DB"""
+    
+    encrypted_clid = keys[0]
+    encrypted_clse = keys[1]
+    ckey = keys[2]
+
+    # Decrypt the ckeys
+    openeo_secret_key = current_app.config.get('OPENEO_SECRET_KEY')
+    cipher_suite = Fernet(openeo_secret_key.encode())
+    
+    clid = cipher_suite.decrypt(encrypted_clid.encode()).decode()
+    clse = cipher_suite.decrypt(encrypted_clse.encode()).decode()
+    
+    return clid, clse, ckey    
+
+def ckeys_valid(clid, clse, ckey=None):
+    
+    try:
+        conn = openeo.connect(OPENEO_BACKEND, auto_validate=False)
+        conn.authenticate_oidc_client_credentials(provider_id=OPENEO_PROVIDER, client_id=clid, client_secret=clse)
+        
+        valid = True
+        
+    except:        
+        valid = False
+        if ckey:
+            # Remove row for ckey from DB
+            query = text(f"DELETE FROM {db_user_credentials} WHERE credential_key = '{ckey}';")
+            
+            with db.engine.connect() as conn:
+                conn.execute(query)
+                conn.commit()
+                conn.close()
+        
+            flash(f"The credentials for {ckey} are not further valid. They has been removed from the database. Please set new one.", "warning")      
+    
+    return valid    
+
+def get_available_key():
+    """ Check the availability of OEO credentials in the DB or create new ones. If the credentials are blocked, wait for their release. """
+    
+    # Get the keys from the DB
+    keys_exists, keys_available = get_oeo_key_from_db()
+    
+    if keys_exists is None:
+        print("No keys found")
+        
+        return redirect(url_for('main.oeo_form'))                    # TODO: správně přesměrovat
+
+    if keys_available is None:
+        print("No keys available - waiting")    # čekat na uvolnění klíče
+        while True:
+            keys_available = get_oeo_key_from_db()[1]
+            if keys_available:
+                break
+            time.sleep(5)
+            
+        clid, clse, ckey = keys_decrypt(keys_available)
+        
+        print("Keys available")       
+        
+    else:
+        print("Keys available")
+        clid, clse, ckey = keys_decrypt(keys_available)
+        valid = ckeys_valid(clid, clse, ckey)
+        
+        if not valid:
+            return redirect(url_for('main.oeo_form'))            # TODO: správně přesměrovat           
+        
+    return clid, clse, ckey
+
+def release_lock_key(key, status=True):
+    """ Release or lock a OEO credentials """
+    
+    query = text(f"UPDATE {db_user_credentials} SET status = '{status}' WHERE credential_key = '{key}';")
+    
+    with db.engine.connect() as conn:
+        conn.execute(query)
+        conn.commit()
+        conn.close()        
+    
+    print(f"The credentials for {key} has been changed to {status}.")
+    
+    return
+
+@main.route("/start-analysis")
+@login_required
+def run_analysis():
+    
+    # Get variables from html/js        # TODO: tady asi budou nějaký vstupy pro analýzy   
+    
+    # Get keys
+    oeo_ckeys = get_available_key()
+    
+    if isinstance(oeo_ckeys, tuple):
+        clid, clse, ckey = oeo_ckeys
+        
+        # Lock the keys
+        release_lock_key(ckey, status=False)
+        
+        try:
+            # Authenticate                  # TODO: Autentizace je už v analýze přímo
+            conn = openeo.connect(OPENEO_BACKEND, auto_validate=False)
+            conn.authenticate_oidc_client_credentials(provider_id=OPENEO_PROVIDER, client_id=clid, client_secret=clse)
+            
+            print("autentizace OK, spouštím výpočet ...")
+            # flash("The process has been authenticated. Calculation is running now.")        # TODO: je potřeba aby se hláška vypsala před spuštěním analýzy a ne až po
+            
+            # Simulace výpočtu:             # TODO: doplnit výpočet
+            time.sleep(20)
+            
+            print("výpočet dokončen")       # TODO: doplnit výpis zpráv, odesílání e-mailů atd, 
+            
+        except Exception as e:
+            flash("Nějakej problém?", "warning")        # TODO: změnit hlášku
+        finally:
+            release_lock_key(ckey, status=True)
+            
+        return redirect(url_for('main.results'))         # TODO: přesměrovat - kontrola --> možná nebude potřeba
+    
+    else:
+        flash("The Client OpenEO credentials are not available. Use new credentials and try the analysis once more", "warning")
+    
+    return oeo_ckeys    
 
 @main.route('/select_waterbody', methods=['POST'])
 @login_required
@@ -164,7 +330,11 @@ def select_waterbody():
         if not gdf_sel_utm.empty:
             gdf_sel_wgs = gdf_sel_utm.to_crs(epsg_orig)     # Convert to WGS 84
             gdf_sel_wgs.reset_index(drop=True, inplace=True)
-    
+            
+            # Check if the 'name' cloumn exists
+            if 'name' not in gdf_sel_wgs:
+                gdf_sel_wgs['name'] = 'Noname'
+   
             # Select the columns for the DB table
             gdf_select = gdf_sel_wgs[['osm_id', 'name', 'area', 'geometry']]
 
@@ -193,13 +363,15 @@ def select_waterbody():
     except Exception:
         pass
 
+    # TODO: přidat info do DB o tom, že daná nádrž patří k danému uživateli 
+
     # 6. Start the calculation process  # TODO: Uncomment the code
     # Set the parameters for the AIHABs object
     # aihabs.osm_id = osm_id    
 
     # Run the calculation process
     # try:
-    #     aihabs.run_analyse()      # Run the calculation process. TODO: finish the function
+    #     aihabs.run_analyse()      # Run the calculation process. # TODO: Upravit funkci pro spuštění analýzy
     # except Exception as e:
     #     print(f"Error in the calculation process: {e}")
     #     e_subject = 'The forecast has not been finished'
@@ -230,6 +402,7 @@ def results():
     return render_template("results.html")
 
 @main.route("/results", methods=['POST'])
+@login_required
 def addDataToMap():
     """Get the water reservoirs from the DB and add them to the map.
     """
@@ -258,6 +431,7 @@ def addDataToMap():
     return json_data
 
 @main.route("/get_data", methods=['GET'])
+@login_required
 def set_data_to_selectBox():
     """
     Get the list of OSM_IDs and reservoir names from the DB and add the list to the selection box.
@@ -284,6 +458,7 @@ def set_data_to_selectBox():
     return jsonify(data_json)
 
 @main.route("/ts_data", methods=['POST'])
+@login_required
 def ts_data():
     """Get the time series data for the particular reservoir.
     """
@@ -319,6 +494,7 @@ def ts_data():
     return jsonify({'data': data_json})
 
 @main.route("/forecast_data", methods=['POST'])
+@login_required
 def forecast_data():
     """Get the forecast time series data for the particular reservoir."""
     
@@ -353,6 +529,7 @@ def forecast_data():
     return jsonify({'data': data_json})
 
 @main.route("/interpolate_data", methods=['POST'])
+@login_required
 def interpolate_data():
     """Make an interpolation of the data for the particular reservoir and date.
     """
@@ -445,6 +622,7 @@ def interpolate_data():
     return jsonify(data)
 
 @main.route("/data_info", methods=['POST'])
+@login_required
 def data_info():                                # TODO: dodělat! --> přidat odkaz na použitý model 
     """
     Information about water reservoir and dataset
@@ -507,6 +685,7 @@ def data_info():                                # TODO: dodělat! --> přidat od
     return jsonify(data)
 
 @main.route("/data_spatial_info", methods=['POST'])
+@login_required
 def data_spatial_info():                                # TODO: dodělat!
     """
     Information about water reservoir and about dataset
@@ -533,6 +712,7 @@ def data_spatial_info():                                # TODO: dodělat!
     return jsonify(data)   
 
 @main.route('/get_bounds', methods=['POST'])
+@login_required
 def get_bounds():
     """
     The function returns bounding box for the selected reservoir to the backend for zooming map.
@@ -555,6 +735,7 @@ def get_bounds():
     return jsonify(bounds)    
 
 @main.route('/download_ts', methods=['POST'])
+@login_required
 def download_ts():
     """Download Time Series data for the dataset"""
     
