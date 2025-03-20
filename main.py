@@ -1,29 +1,24 @@
-from flask import Flask, request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app
+from flask import request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app
 from flask_login import login_required, current_user
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine, exc, text
-from geoalchemy2 import Geometry
+from sqlalchemy import exc, text
 import osmnx as ox
 import geopandas as gpd
-from shapely.geometry import Polygon
 import os
 import time
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
-import smtplib
 import json
 from flask_mail import Message
-from dotenv import load_dotenv
 from scipy.stats import sem, t
-import rasterio
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from scipy.ndimage import zoom
 from datetime import datetime, timedelta
-from . import db, mail
+from . import db, mail, socketio
 from cryptography.fernet import Fernet
 import openeo
+
+from .static.libs.AIHABs import AIHABs
 
 
 main = Blueprint('main',__name__)
@@ -33,15 +28,9 @@ OPENEO_BACKEND = "https://openeo.dataspace.copernicus.eu"
 
 # DB tables
 water_reservoirs = 'reservoirs'
+user_reservoirs = 'user_reservoirs'
 db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
 db_user_credentials = 'user_credentials'
-
-# Create the AIHABs object
-# aihabs = AIHABs()     # TODO: create the AIHABs object, uncomment the line
-# aihabs.db_name = db_name
-# aihabs.db_table_reservoirs = water_reservoirs
-# aihabs.freq = 'D'
-# aihabs.t_shift = 3
 
 # Set the minimum area of the reservoir
 min_area = 1.0      # TODO: possibly get it from the setting file
@@ -214,7 +203,7 @@ def get_available_key():
             keys_available = get_oeo_key_from_db()[1]
             if keys_available:
                 break
-            time.sleep(5)
+            time.sleep(3)
             
         clid, clse, ckey = keys_decrypt(keys_available)
         
@@ -246,7 +235,7 @@ def release_lock_key(key, status=True):
 
 @main.route("/start-analysis")
 @login_required
-def run_analysis():
+def run_analysis(osm_id=None, wq_feature=None):
     
     # Get variables from html/js        # TODO: tady asi budou nějaký vstupy pro analýzy   
     
@@ -264,16 +253,24 @@ def run_analysis():
             conn = openeo.connect(OPENEO_BACKEND, auto_validate=False)
             conn.authenticate_oidc_client_credentials(provider_id=OPENEO_PROVIDER, client_id=clid, client_secret=clse)
             
-            print("autentizace OK, spouštím výpočet ...")
-            # flash("The process has been authenticated. Calculation is running now.")        # TODO: je potřeba aby se hláška vypsala před spuštěním analýzy a ne až po
+            print("Authentication is OK. Starting the calculation process.")
+            flash("The process has been authenticated. Calculation is running now.")        # TODO: je potřeba aby se hláška vypsala před spuštěním analýzy a ne až po
             
-            # Simulace výpočtu:             # TODO: doplnit výpočet
-            time.sleep(20)
-            
-            print("výpočet dokončen")       # TODO: doplnit výpis zpráv, odesílání e-mailů atd, 
-            
+            # Calculation
+            if osm_id:
+                aihabs = AIHABs()
+                aihabs.client_id = clid
+                aihabs.client_secret = clse
+                aihabs.osm_id = osm_id
+                aihabs.feature = wq_feature
+                aihabs.db_name = current_app.config.get('DB_NAME')
+                
+                aihabs.run_analyse()
+                
+                print("The calculation finished!")       # TODO: doplnit výpis zpráv, odesílání e-mailů atd, 
+                
         except Exception as e:
-            flash("Nějakej problém?", "warning")        # TODO: změnit hlášku
+            flash("The connection to CDSE has not been authenticated. Try it again or set the valid authentication credentials.", "warning")        # TODO: změnit hlášku
         finally:
             release_lock_key(ckey, status=True)
             
@@ -293,7 +290,7 @@ def select_waterbody():
     osm_id = data.get("osm_id")                 # get OSM_ID from the map
     reserv_name = data.get("name")              # get name of the layer from the map
     lyr_point_position = data.get("firstVrt")   # get first vertex position of the layer
-    wqf_name = data.get("wq_param")           # get wq_feature number (0: ChlA default)
+    wqf_name = data.get("wq_param")             # get wq_feature name
 
     # Get layer from OSMNX for particular OSM_ID and save it to database
     # 1. Check if the reservoir is already in the DB
@@ -363,35 +360,44 @@ def select_waterbody():
     except Exception:
         pass
 
-    # TODO: přidat info do DB o tom, že daná nádrž patří k danému uživateli 
+    # Add the reservoir to the table for current user # TODO: přidat info do DB o tom, že daná nádrž patří k danému uživateli
+    query_wr_user_exists = text(f"SELECT EXISTS (SELECT * FROM {user_reservoirs} WHERE osm_id = '{osm_id}' AND user_id = '{current_user.id}')")
+    try:
+        result = db.session.execute(query_wr_user_exists)
+        result = result.scalar()
+        print(result)
+    except exc.SQLAlchemyError as e:
+        print(f"Error: {e}")
+        result = False
+        
+    if not result:
+        query_add_wr_user = text(f"INSERT INTO {user_reservoirs} (user_id, osm_id) VALUES ('{current_user.id}', '{osm_id}') ON CONFLICT DO NOTHING;")
+        db.session.execute(query_add_wr_user)
+        db.session.commit()
 
-    # 6. Start the calculation process  # TODO: Uncomment the code
-    # Set the parameters for the AIHABs object
-    # aihabs.osm_id = osm_id    
+    # 6. Start the calculation process
+    try:
+        run_analysis(osm_id=osm_id, wq_feature=wqf_name)      # Run the calculation process
+        
+    except Exception as e:
+        print(f"Error in the calculation process: {e}")
+        flash(f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.', 'warning')
+        
+        # Send the info e-mail
+        e_subject = 'The forecast has not been finished'
+        e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'
+        sendInfoEmail(current_user.email, e_subject, e_content)
 
-    # Run the calculation process
-    # try:
-    #     aihabs.run_analyse()      # Run the calculation process. # TODO: Upravit funkci pro spuštění analýzy
-    # except Exception as e:
-    #     print(f"Error in the calculation process: {e}")
-    #     e_subject = 'The forecast has not been finished'
-    #     e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'
-    #     # Send the info e-mail
-    #     sendInfoEmail(current_user.email, e_subject, e_content)
-
-    #     return render_template("select_wr.html")
-
-    # 7. Add the OSM_ID to the list of OSM_IDs for the particular user      # TODO: add the OSM_ID to the list of OSM_IDs for the particular user
+        return render_template("select_wr.html")
 
     # 8. Send info e-mail
     print(f"Sending e-mail to: {current_user.email}")
     
-    # Define the e-mail subject and content
+    # Send the info e-mail
     e_subject = 'The forecast has been finished'
     results_url = url_for('main.results', _external=True)
     e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has been finished. The results are available at the results page: {results_url}.'
-
-    # Send the info e-mail
+    
     sendInfoEmail(current_user.email, e_subject, e_content)
 
     return render_template("select_wr.html")
@@ -401,57 +407,105 @@ def select_waterbody():
 def results():
     return render_template("results.html")
 
-@main.route("/results", methods=['POST'])
+@socketio.on('start_analysis')
+@main.route('/update_dataset', methods=['POST'])
+def update_dataset():
+    """The function updates datasets and provide the analysis of the data.
+    """
+    
+    flash("Nejaka zprava jako", "info")
+    
+    # Get the data from the request
+    data = request.json
+    osm_id = str(data['osm_id'])
+    wq_feature = data['feature']
+    reserv_name = data['wr_name']
+    
+    print(reserv_name)
+    
+    # Send the Flash message
+    socketio.emit("flash_message", {"category": "info", "message": "Your request has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."})
+    
+    # Run the analysis
+    try:
+        # socketio.sleep(10)
+        run_analysis(osm_id=osm_id, wq_feature=wq_feature)      # Run the calculation process
+        
+    except Exception as e:
+        print(f"Error in the calculation process: {e}")
+        socketio.emit("flash_message", {"category": "info", "message": f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'})
+        
+        # Send the info e-mail
+        e_subject = 'The forecast has not been finished'
+        e_content = f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'
+        sendInfoEmail(current_user.email, e_subject, e_content)
+
+        return render_template("results.html")
+
+    # 8. Send info e-mail
+    print(f"Sending e-mail to: {current_user.email}")
+    
+    # Send the info e-mail
+    e_subject = 'The forecast has been finished'
+    results_url = url_for('main.results', _external=True)
+    e_content = f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has been finished. The results are available at the results page: {results_url}.'
+    
+    sendInfoEmail(current_user.email, e_subject, e_content)
+    
+    return render_template("results.html")
+
+@main.route("/add_wr_to_map", methods=['POST'])
 @login_required
-def addDataToMap():
-    """Get the water reservoirs from the DB and add them to the map.
+def add_wr_to_map():
+    """
+    Get the water reservoirs from the DB and add them to the map.
     """
 
-    # Get the water reservoirs from the DB
-    # 1. Define list of OSM_IDs for particular user     # TODO: get the list from the DB - odkomentovat a upravit vstupy
-    # user_table = 'users'
-    # user_id = ...                                         # TODO: get the user_id from the DB
-    # query = text(f"SELECT DISTINCT osm_id FROM {user_table} where user_id = {user_id}")  # Get the list of OSM_ID from the DB
-    # query2 = text("SELECT * FROM reservoirs WHERE osm_id IN :osm_ids")                   # Selection of the reservoirs for the particular user
-    
-    # # Get the list of OSM_IDs from the DB
-    # df_osm_ids = pd.read_sql_query(query, db.engine)
-    # osm_ids = df_osm_ids['osm_id'].tolist()
-    
-    # # 2. Get the water reservoirs from the DB for list of OSM_IDs for the particular user
-    # gdf_reservoirs = gpd.read_postgis(query2, db.engine, geom_col='geometry', params={'osm_ids': tuple(osm_ids)})
-    
-    # Pracovní verze    
-    query = text("SELECT * FROM reservoirs")            # TODO: smaž po doplnění    
-    gdf_reservoirs = gpd.read_postgis(query, db.engine, geom_col='geometry')
+    if current_user.urole != 1:    
+        # Get the water reservoirs from the DB
+        # 1. Define list of OSM_IDs for particular user
+        query = text(f"SELECT DISTINCT osm_id FROM {user_reservoirs} where user_id = {current_user.id}")  # Get the list of OSM_ID from the DB    
+        
+        # Get the list of OSM_IDs from the DB
+        df_osm_ids = pd.read_sql_query(query, db.engine)
+        osm_ids = df_osm_ids['osm_id'].tolist()
+        
+        # 2. Get the water reservoirs from the DB for list of OSM_IDs for the particular user
+        query2 = text(f"SELECT * FROM {water_reservoirs} WHERE osm_id IN :osm_ids")                   # Selection of the reservoirs for the particular user
+        gdf_reservoirs = gpd.read_postgis(query2, db.engine, geom_col='geometry', params={'osm_ids': tuple(osm_ids)})
+        
+    else:    
+        # Selection for admin  
+        query = text("SELECT * FROM reservoirs")  
+        gdf_reservoirs = gpd.read_postgis(query, db.engine, geom_col='geometry')
 
     # 3. Add the reservoirs to the map
     json_data = jsonify(json.loads(gdf_reservoirs.to_json()))
 
     return json_data
 
-@main.route("/get_data", methods=['GET'])
+@main.route("/set_data_to_selectBox", methods=['GET'])
 @login_required
 def set_data_to_selectBox():
     """
     Get the list of OSM_IDs and reservoir names from the DB and add the list to the selection box.
     """
-    # 1. Get the list of OSM_IDs and reservoir names from the DB for the particular user
-    # user_table = 'users'
-    # user_id = ...                                         # TODO: get the user_id from the DB
-    # query = text(f"SELECT DISTINCT osm_id FROM {user_table} where user_id = {user_id}")  # Get the list of OSM_ID from the DB
-    # query2 = text("SELECT osm_id, name FROM reservoirs WHERE osm_id IN :osm_ids")                   # Selection of the reservoirs for the particular user
+    if current_user.urole != 1:
+        # 1. Get the list of OSM_IDs and reservoir names from the DB for the particular user
+        query = text(f"SELECT DISTINCT osm_id FROM {user_reservoirs} where user_id = {current_user.id}")  # Get the list of OSM_ID from the DB
+
+        
+        # Get the list of OSM_IDs from the DB
+        df_osm_ids = pd.read_sql_query(query, db.engine)
+        osm_ids = df_osm_ids['osm_id'].tolist()
+        
+        # 2. Get the water reservoirs from the DB for list of OSM_IDs for the particular user
+        query2 = text("SELECT osm_id, name FROM reservoirs WHERE osm_id IN :osm_ids")                   # Selection of the reservoirs for the particular user
+        df_data = pd.read_sql_query(query2, db.engine, params={'osm_ids': tuple(osm_ids)})
     
-    # # Get the list of OSM_IDs from the DB
-    # df_osm_ids = pd.read_sql_query(query, db.engine)
-    # osm_ids = df_osm_ids['osm_id'].tolist()
-    
-    # # 2. Get the water reservoirs from the DB for list of OSM_IDs for the particular user
-    # df_data = pd.read_sql_query(query2, db.engine)
-    
-    
-    # Get the list of OSM_IDs from the DB    
-    df_data = pd.read_sql_query("SELECT osm_id, name FROM reservoirs", db.engine)       # TODO: smaž po doplnění
+    else:
+        # Get the list of OSM_IDs from the DB    
+        df_data = pd.read_sql_query("SELECT osm_id, name FROM reservoirs", db.engine)
 
     data_json = df_data.to_json(orient='records')
     
@@ -495,7 +549,7 @@ def ts_data():
 
 @main.route("/forecast_data", methods=['POST'])
 @login_required
-def forecast_data():
+def forecast_data():            # TODO: Přesměrovat na správnou tabulku
     """Get the forecast time series data for the particular reservoir."""
     
     # Get the data from the request
@@ -530,7 +584,7 @@ def forecast_data():
 
 @main.route("/interpolate_data", methods=['POST'])
 @login_required
-def interpolate_data():
+def interpolate_data():         # TODO: výstup jako rast - stačí IDW --> do mapy. Možná ořez podle dat
     """Make an interpolation of the data for the particular reservoir and date.
     """
     # Get the data from the request
