@@ -105,9 +105,6 @@ BROM, Jakub, Václav NEDBAL, Blanka TESAŘOVÁ a Jan KUNTZMAN, 2024. RWQForecast
 
 The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. 
 
->[!NOTE]
->The computational unit is implemented in the RWQForecast services (see [RWQForecast-engine](https://github.com/JakubBrom/RWQForecast-engine)), however it is not linked with the frontend yet.
-
 ## User interface
 
 The RWQForecast system is designed to be user-friendly and intuitive. Some parts are still under development. The following tutorial provides a step-by-step guide to using the system:
@@ -174,9 +171,9 @@ In this step, a pre-trained AI estimation model is used to compute the requested
     
 Satellite image data availability is irregular due to weather conditions, especially cloud cover, which varies geographically. The system handles missing data using the Support Vector Machine (SVM) method, which reconstructs a complete daily time series by utilizing the characteristics of each time series along with meteorological data as a coregressor. 
     
-### 6. Forecasting
+### 6. Forecasting $${\color{red}(upcoming)}$$
     
-The model estimates the probable evolution of time series using historical data and meteorological information as coregressors. The Long Short-Term Memory (LSTM) method is used for prediction, generating forecasts for all selected points within the reservoir. $${\color{red}(upcoming)}$$
+The model estimates the probable evolution of time series using historical data and meteorological information as coregressors. The Long Short-Term Memory (LSTM) method is used for prediction, generating forecasts for all selected points within the reservoir. 
     
 ### 7. Visualization of results and statistical analysis
     
