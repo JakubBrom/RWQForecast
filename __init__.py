@@ -1,7 +1,8 @@
-from flask import Flask
+from flask import Flask, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
+from flask_socketio import SocketIO
 from dotenv import load_dotenv, set_key
 from cryptography.fernet import Fernet
 import os
@@ -12,6 +13,8 @@ load_dotenv()
 db = SQLAlchemy()
 # init Mail so we can use it later in our app
 mail = Mail()
+# init SocketIO
+socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
@@ -20,9 +23,9 @@ def create_app():
     DB_PASSWORD=os.getenv('DB_PASSWORD')
     DB_HOST=os.getenv('DB_HOST')
     DB_PORT=os.getenv('DB_PORT')
-    DB_NAME=os.getenv('DB_NAME')
+    app.config['DB_NAME']=os.getenv('DB_NAME')
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{app.config['DB_NAME']}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     app.config['SECURITY_SALT'] = os.getenv('SECURITY_SALT')
@@ -49,6 +52,8 @@ def create_app():
     mail = Mail(app)      
     
     db.init_app(app)
+    
+    socketio.init_app(app, cors_allowed_origins="*")
 
     login_manager = LoginManager()
     login_manager.login_view = 'auth.login'
