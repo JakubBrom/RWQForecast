@@ -8,7 +8,7 @@ import base64
 
 from sqlalchemy import create_engine, exc, text
 import datetime
-from AIHABs_wrappers import measure_execution_time
+from .AIHABs_wrappers import measure_execution_time
 from warnings import warn
 
 
