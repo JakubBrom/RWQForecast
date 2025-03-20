@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% with messages = get_flashed_messages(with_categories=true) %}
+<div id="flash-messages"></div>
+<!--
+    {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
     {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ messages[0][1] }}
+            {{ messages }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     {% endfor %}
     {% endif %}
-{% endwith %}
+    {% endwith %}
+-->
+
 
 <h1>Water quality analysis</h1>
 
@@ -50,8 +54,9 @@
                 
                 <button type="button" class="btn btn-primary" id="confirm-btn">Confirm selection</button>
 
-                <button type="button" class="btn btn-success" id="update-btn" onclick="window.location.href='/start-analysis'">Update dataset</button>
-                
+                <!-- <button type="button" class="btn btn-success" id="update-btn" onclick="window.location.href='/start-analysis'">Update dataset</button> -->
+                <button type="button" class="btn btn-success" id="update-btn">Update dataset</button>
+
                 <a href='/select'>
                     <button type="button" class="btn btn-success" id="new-wr-btn" href='/select'>Add new reservoir</button>
                 </a>
@@ -64,7 +69,7 @@
 
 <div class="container-fluid" style="width: 100%;">
     <div class="row" style="margin-top: 30px;">
-        <div class="col">
+        <div class="col-1", style="width: 33%;">
             <h2>Water reservoir information</h2>
             <!-- Vykreslení tabulky se statistikami-->
             <table class="table table-striped">
@@ -90,11 +95,11 @@
             <div id="ts_chart" style="width: 100%; height: 90%;"></div>          
         </div>
 
-        <div class="col">
-            <h2>Forecast</h2>
-            <!-- Vykreslení grafu pro předpověď-->
-            <div id="forecast_chart" style="width: 100%; height: 90%;"></div> 
-        </div>
+        <!-- <div class="col">
+            <h2>Forecast</h2> -->
+            <!-- Vykreslení grafu pro předpověď -->
+            <!-- <div id="forecast_chart" style="width: 100%; height: 90%;"></div> 
+        </div> -->
         
     </div>
 </div>
@@ -197,7 +202,7 @@
                 east: bounds.getEast()
             };
 
-            fetch('/results', {
+            fetch('/add_wr_to_map', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bbox)
@@ -218,7 +223,7 @@
     // Načtení dat pro výběr nádrže
     $(document).ready(function(){
         $.ajax({
-            url: '/get_data',
+            url: '/set_data_to_selectBox',
             type: 'GET',
             success: function(response) {
                 var data = JSON.parse(response);
@@ -285,7 +290,7 @@
 </script>
 
 <script>
-    // Get data from the forms and get it to the backend
+    // Get data from the forms and add it to the backend
     function getData(getUrl, confId) {
         $(document).ready(function() {
             $(confId).click(function() {
@@ -300,7 +305,8 @@
                     data: JSON.stringify({ osm_id: osm_id, feature: feature, wr_name: wr_name }),
                     success: function(data) {
                         console.log("Data OK")
-                        },
+                        
+                    },
                     error: function(error) {
                         console.error("Error loading data:", error);
                     }
@@ -308,6 +314,40 @@
             });
         });
     }
+    getData("/update_dataset", "#update-btn")
+</script>
+
+<script>
+    // Připojení k WebSocket serveru
+    var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+    // Naslouchání zprávám
+    socket.on("flash_message", function(data) {
+        console.log("Zpráva: ", data);
+
+        // Vytvoření flash zprávy
+        const flashMessage = $(`
+            <div class="alert alert-${data.category} alert-dismissible fade show" role="alert">
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `);
+
+        // Přidání zprávy do divu
+        $("#flash-messages").append(flashMessage);
+
+        // Automatické skrytí zprávy po 5 sekundách
+        setTimeout(function() {
+            flashMessage.fadeOut(500, function() { $(this).remove(); });
+        }, 10000);
+    });
+
+    // Odeslání požadavku na spuštění analýzy
+    $(document).ready(function() {
+        $("#update-btn").click(function() {
+            socket.emit("start_analysis", {});
+        });
+    });
 </script>
 
 <script src="static/js/fill-tab.js">
