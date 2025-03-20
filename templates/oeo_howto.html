@@ -1,4 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 
+<p>OAuth Client Credentials provided by the <a href="https://dataspace.copernicus.eu/" target="_blank" rel="noopener noreferrer">Copernicus DataSpace Ecosystem</a> enable access to data from the system and are essential for further analysis. Detailed information on Client Credentials and how to obtain them can be found <a href="https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Overview/Authentication.html#registering-oauth-client">here</a>.</p>
+
+<p>The access to the OAuth Client Credentials is here:</p>
+
+<button type="submit" class="btn btn-primary" onclick="window.open('https://shapps.dataspace.copernicus.eu/dashboard/#/account/settings', '_blank')">Get new Credentials</button>
+
+
 {% endblock%}
