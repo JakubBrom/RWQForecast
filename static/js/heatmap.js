@@ -106,6 +106,8 @@ function plotTimeSeries(dataUrl, divId){
                 },
                 error: function(error) {
                     console.error("Chyba při načítání dat:", error);
+                    alert(`Chyba při načítání dat: ${error}`);
+
                     var data = [];
 
                     var layout = {
