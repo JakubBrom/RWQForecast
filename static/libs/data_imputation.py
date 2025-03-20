@@ -8,7 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import SVR
 from sklearn.impute import SimpleImputer
 
-from AIHABs_wrappers import measure_execution_time
+from .AIHABs_wrappers import measure_execution_time
 
 
 def create_dataset(db_name, user, osm_id, feature, model_id, db_wq_results, db_table_history, freq='W'):

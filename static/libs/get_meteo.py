@@ -18,7 +18,7 @@ def getHistoricalMeteoData(osm_id, meteo_features, user, db_name, db_table, vect
     :param meteo_features: List of meteo features
     :param user: Postgres DB user
     :param db_name: Postgres database name
-    :param db_table: Postgres database table
+    :param db_table: Postgres database table for meteo history
     :param vect_db_table: PostGIS database table with water reservoirs
     :param time_zone: Time zone. Default GMT
     :return:
@@ -40,7 +40,7 @@ def getHistoricalMeteoData(osm_id, meteo_features, user, db_name, db_table, vect
 
         else:
             # Remove last date from database.
-            sql_query = text("DELETE FROM meteo_history WHERE osm_id = :val1 AND date = :val2")
+            sql_query = text(f"DELETE FROM {db_table} WHERE osm_id = :val1 AND date = :val2")
             conn = engine.connect()
             conn.execute(sql_query, {'val1': str(osm_id), 'val2': last_db_date})
             conn.commit()

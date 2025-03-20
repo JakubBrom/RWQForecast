@@ -8,7 +8,7 @@ from shapely.geometry import Polygon, Point
 from scipy.spatial import Delaunay, Voronoi
 from sqlalchemy import create_engine, text
 from multiprocessing import Pool
-from AIHABs_wrappers import measure_execution_time
+from .AIHABs_wrappers import measure_execution_time
 
 
 def points_clip(points, polygon):
@@ -126,7 +126,7 @@ def get_vertices(polygon):
     return all_coords
 
 
-def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=100, n_max_points=5000, **kwargs):
+def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=200, n_max_points=5000, **kwargs):
     """
     Generate points within a polygon with respect of its complexity, and clip them with a buffer zone.
 
