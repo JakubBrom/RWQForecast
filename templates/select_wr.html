@@ -1,16 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <body>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ messages }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
+    
+    <div id="flash-messages"></div>
 
     <h1>Water reservoir selection</h1>
     <p>Zoom to the area of interest and select the water reservoir by clicking on its border line</p>
@@ -206,8 +198,8 @@
                     // Uzavření dialogu IHNED po kliknutí na "Potvrdit"
                     prekryti.style.display = "none";
 
-                    // PŘESMĚROVÁNÍ IHNED PO POTVRZENÍ --> posunout o kus dál až po stažení vrstvy a výpočtu plochy --> načíst plochu a buď vypsat, že je plocha malá nebo je v DB a nebo spustit proces výpočtu.
-                    window.location.href = "/processing?osm_id=" + osm_id; // Přesměrování s parametrem
+                    // // PŘESMĚROVÁNÍ IHNED PO POTVRZENÍ --> posunout o kus dál až po stažení vrstvy a výpočtu plochy --> načíst plochu a buď vypsat, že je plocha malá nebo je v DB a nebo spustit proces výpočtu.
+                    // window.location.href = "/processing?osm_id=" + osm_id; // Přesměrování s parametrem
 
                     fetch('/select_waterbody', {
                         method: 'POST',
@@ -217,10 +209,11 @@
                         .then(response => response.json())
                         .then(data => {                            
                             console.log("Backend process finished:", data);
+                            socket.emit("select_and_start_analysis", { osm_id: osm_id });
                         })
                         .catch(error => {
                             console.error("Error during sending the data", error);
-                            alert("The error during sending the data to the server has occured");
+                            //alert("The error during sending the data to the server has occured");
                             prekryti.style.display = "none";
                         });
                 }
@@ -231,5 +224,43 @@
             });
         }); // Konec události DOMContentLoaded
     </script>
+
+    <script>
+        // Připojení k WebSocket serveru
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        // Naslouchání zprávám
+        socket.on("flash_message", function(data) {
+            console.log("Zpráva: ", data);
+
+            // Vytvoření flash zprávy
+            const flashMessage = $(`
+                <div class="alert alert-${data.category} alert-dismissible fade show" role="alert">
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `);
+
+            // Přidání zprávy do divu
+            $("#flash-messages").append(flashMessage);
+
+            // Automatické skrytí zprávy po 5 sekundách
+            setTimeout(function() {
+                flashMessage.fadeOut(500, function() { $(this).remove(); });
+            }, 10000);
+        });
+
+        socket.on("redirect", function(data) {
+            window.location.href = data.url;  // Přesměrování na danou URL
+        });
+
+        // Odeslání požadavku na spuštění analýzy
+        // $(document).ready(function() {
+        //     $("#potvrditDialog").click(function() {
+        //         socket.emit("select_and_start_analysis", {});
+        //     });
+        // });
+    </script>
+
 </body>
 {% endblock%}
