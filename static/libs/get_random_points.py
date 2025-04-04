@@ -126,7 +126,7 @@ def get_vertices(polygon):
     return all_coords
 
 
-def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=200, n_max_points=5000, **kwargs):
+def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=500, n_max_points=10000, **kwargs):
     """
     Generate points within a polygon with respect of its complexity, and clip them with a buffer zone.
 
@@ -141,7 +141,7 @@ def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=200,
     """
 
     # Simplyfy input polygon
-    polygon_geom = in_gdf_polygon['geometry'][0].simplify(0.0001, preserve_topology=True)
+    polygon_geom = in_gdf_polygon['geometry'][0].simplify(0.00001, preserve_topology=True)
     gdf_polygon = gpd.GeoDataFrame(geometry=[polygon_geom], crs=in_gdf_polygon.crs)
 
     # Get the vertices of the polygon
@@ -156,8 +156,8 @@ def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=200,
     gdf_centroids = gpd.pd.concat([gdf_Delaunay_centroids, gdf_Voronoi_centroids, gdf_mesh], ignore_index=True)
 
     # Sample centroids for decreasing number of points in the dataset
-    if len(gdf_centroids) > 10000:
-        gdf_centroids = gdf_centroids.sample(10000)
+    if len(gdf_centroids) > 20000:
+        gdf_centroids = gdf_centroids.sample(20000)
 
     # Create a buffer zone inside the selected water reservoir
     # Get original CRS of the input layer
