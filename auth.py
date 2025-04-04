@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
+import uuid
 from .models import Users
 from . import db, mail
 
@@ -23,6 +24,10 @@ def login_post():
     remember = True if request.form.get('remember') else False
 
     user = Users.query.filter_by(email=email).first()
+
+    # user_id for SocketIO
+    user_id = str(uuid.uuid4())  # Generate a new UUID for the user_id
+    session['user_id'] = user_id  # Store the user_id in the session
 
     # check if the user actually exists
     # take the user-supplied password, hash it, and compare it to the hashed password in the database
