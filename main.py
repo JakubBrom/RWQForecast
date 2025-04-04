@@ -1,4 +1,4 @@
-from flask import request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app
+from flask import request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app, session
 from flask_login import login_required, current_user
 from sqlalchemy import exc, text
 import osmnx as ox
@@ -15,6 +15,7 @@ from rasterio.transform import from_origin
 from scipy.ndimage import zoom
 from datetime import datetime, timedelta
 from . import db, mail, socketio
+from .socketio_handlers import connected_users
 from cryptography.fernet import Fernet
 import openeo
 
@@ -195,7 +196,8 @@ def get_available_key():
     if keys_exists is None:
         print("No keys found")
         
-        return redirect(url_for('main.oeo_form'))                    # TODO: správně přesměrovat
+        return # redirect(url_for('main.oeo_form')), 302                    # TODO: správně přesměrovat
+        # return render_template("credentials.html")
 
     if keys_available is None:
         print("No keys available - waiting")    # čekat na uvolnění klíče
@@ -215,7 +217,7 @@ def get_available_key():
         valid = ckeys_valid(clid, clse, ckey)
         
         if not valid:
-            return redirect(url_for('main.oeo_form'))            # TODO: správně přesměrovat           
+            return # redirect(url_for('main.oeo_form')), 302            # TODO: správně přesměrovat           
         
     return clid, clse, ckey
 
@@ -238,7 +240,11 @@ def release_lock_key(key, status=True):
 def run_analysis(osm_id=None, wq_feature=None):
     
     # Get variables from html/js        # TODO: tady asi budou nějaký vstupy pro analýzy   
-    
+    user_id = session.get("user_id")
+    sid = connected_users.get(user_id)
+
+    print("SID je: ", sid)
+
     # Get keys
     oeo_ckeys = get_available_key()
     
@@ -254,7 +260,7 @@ def run_analysis(osm_id=None, wq_feature=None):
             conn.authenticate_oidc_client_credentials(provider_id=OPENEO_PROVIDER, client_id=clid, client_secret=clse)
             
             print("Authentication is OK. Starting the calculation process.")
-            flash("The process has been authenticated. Calculation is running now.")        # TODO: je potřeba aby se hláška vypsala před spuštěním analýzy a ne až po
+            socketio.emit("flash_message", {"category": "info", "message": "The process has been authenticated. Calculation is running now."}, room=sid)
             
             # Calculation
             if osm_id:
@@ -270,17 +276,20 @@ def run_analysis(osm_id=None, wq_feature=None):
                 print("The calculation finished!")       # TODO: doplnit výpis zpráv, odesílání e-mailů atd, 
                 
         except Exception as e:
-            flash("The connection to CDSE has not been authenticated. Try it again or set the valid authentication credentials.", "warning")        # TODO: změnit hlášku
+            socketio.emit("redirect", {"url": url_for('main.oeo_form', _external=True)}, room=sid)
+            
         finally:
             release_lock_key(ckey, status=True)
             
         return redirect(url_for('main.results'))         # TODO: přesměrovat - kontrola --> možná nebude potřeba
     
     else:
-        flash("The Client OpenEO credentials are not available. Use new credentials and try the analysis once more", "warning")
+        socketio.emit("redirect", {"url": url_for('main.oeo_form', _external=True)}, room=sid)
     
     return oeo_ckeys    
 
+
+@socketio.on('select_and_start_analysis')
 @main.route('/select_waterbody', methods=['POST'])
 @login_required
 def select_waterbody():
@@ -291,6 +300,11 @@ def select_waterbody():
     reserv_name = data.get("name")              # get name of the layer from the map
     lyr_point_position = data.get("firstVrt")   # get first vertex position of the layer
     wqf_name = data.get("wq_param")             # get wq_feature name
+
+    user_id = session.get("user_id")
+    print("User ID je: ", user_id)
+    sid = connected_users.get(user_id)
+    print("SID je: ", sid)
 
     # Get layer from OSMNX for particular OSM_ID and save it to database
     # 1. Check if the reservoir is already in the DB
@@ -346,12 +360,12 @@ def select_waterbody():
             sendInfoEmail(current_user.email, e_subject, e_content)
 
             # return render_template("select_wr.html")
-            flash("The reservoir is too small for the calculation.", 'warning')
-            return redirect(url_for('main.results'))
-            # TODO: Vypsat chybovou hlášku na stránku
+            socketio.emit("flash_message", {"category": "warning", "message": "The reservoir is too small for the calculation."}, room=sid)
+            return render_template("select_wr.html")    # redirect(url_for('main.results'))
 
     else:
         print("The reservoir is already in the DB.")
+        socketio.emit("flash_message", {"category": "warning", "message": "The reservoir is already in the DB. The data will be updated."}, room=sid)
 
     # 5. Clear the cache
     try:
@@ -407,40 +421,40 @@ def select_waterbody():
 def results():
     return render_template("results.html")
 
+
 @socketio.on('start_analysis')
-@main.route('/update_dataset', methods=['POST'])
-def update_dataset():
+def update_dataset(data):
     """The function updates datasets and provide the analysis of the data.
     """
     
-    flash("Nejaka zprava jako", "info")
-    
-    # Get the data from the request
-    data = request.json
-    osm_id = str(data['osm_id'])
-    wq_feature = data['feature']
-    reserv_name = data['wr_name']
-    
-    print(reserv_name)
+    # Set SocketIO session
+    user_id = session.get("user_id")
+    sid = connected_users.get(user_id)
     
     # Send the Flash message
-    socketio.emit("flash_message", {"category": "info", "message": "Your request has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."})
+    socketio.emit("flash_message", {"category": "info", "message": "Your request has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
     
     # Run the analysis
     try:
-        # socketio.sleep(10)
+        # Get data
+        osm_id = str(data.get('osm_id'))
+        wq_feature = data.get('feature')
+        reserv_name = data.get('wr_name')
+        
+        print(reserv_name)
+        
         run_analysis(osm_id=osm_id, wq_feature=wq_feature)      # Run the calculation process
         
     except Exception as e:
         print(f"Error in the calculation process: {e}")
-        socketio.emit("flash_message", {"category": "info", "message": f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'})
+        socketio.emit("flash_message", {"category": "info", "message": f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'}, room=sid)
         
         # Send the info e-mail
         e_subject = 'The forecast has not been finished'
         e_content = f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'
         sendInfoEmail(current_user.email, e_subject, e_content)
 
-        return render_template("results.html")
+        # return render_template("results.html")
 
     # 8. Send info e-mail
     print(f"Sending e-mail to: {current_user.email}")
@@ -452,7 +466,7 @@ def update_dataset():
     
     sendInfoEmail(current_user.email, e_subject, e_content)
     
-    return render_template("results.html")
+    # return render_template("results.html")
 
 @main.route("/add_wr_to_map", methods=['POST'])
 @login_required
