@@ -28,7 +28,7 @@ def authenticate_OEO():
 
     return connection
 
-def last_access(osm_id, db_name, user, db_access_date, n_days=2):
+def last_access(osm_id, db_name, user, db_access_date, n_days=1):
     """
     Get the last access date to CDSE for the reservoir
 
@@ -308,7 +308,7 @@ def check_job_error(connection, jobid=None):
 
 @measure_execution_time
 def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, user, db_table_reservoirs, db_table_points, db_table_S2_points_data, db_access_date, oeo_backend_url="https://openeo.dataspace.copernicus.eu",
-                       start_date=None, end_date=None, n_points_max=5000, **kwargs):
+                       start_date=None, end_date=None, n_points_max=10000, **kwargs):
     """
     This function is a wrapper for the get_sentinel2_data function. It calls it with the defined parameters,
     manage the time windows and the database connection.
@@ -334,7 +334,7 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
     continue_calc = last_access(osm_id, db_name, user, db_access_date)
     
     if not continue_calc:
-        print("Data for the reservoir are up to date.")
+        print(f"Data for the reservoir {osm_id} are up to date.")
         return
     
     # Connect to PostGIS
