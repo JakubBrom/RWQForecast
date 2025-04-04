@@ -7,7 +7,7 @@
     {% if messages %}
     {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ messages }}
+            {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     {% endfor %}
@@ -45,11 +45,13 @@
                 </select>
                 </br>
 
+                <!-- TODO:
                 <label for="model_name" class="form-label">Select prediction model:</label>
                 <select class="form-select" id="sel_model" name="model_name">
                     <option value=""></option>
                     <option value="f0f13295-2068-436a-a900-a7fff15ec9a7">AI_model_test_3 (default)</option>
                 </select>
+                -->
                 </br>
                 
                 <button type="button" class="btn btn-primary" id="confirm-btn">Confirm selection</button>
@@ -95,11 +97,13 @@
             <div id="ts_chart" style="width: 100%; height: 90%;"></div>          
         </div>
 
-        <!-- <div class="col">
+        <!-- TODO:
+        <div class="col">
             <h2>Forecast</h2> -->
             <!-- Vykreslení grafu pro předpověď -->
             <!-- <div id="forecast_chart" style="width: 100%; height: 90%;"></div> 
-        </div> -->
+        </div>
+        -->
         
     </div>
 </div>
@@ -290,34 +294,6 @@
 </script>
 
 <script>
-    // Get data from the forms and add it to the backend
-    function getData(getUrl, confId) {
-        $(document).ready(function() {
-            $(confId).click(function() {
-                const osm_id = $('#sel_wr').val();
-                const feature = $('#select_wq').val();
-                const wr_name = $('#sel_wr option:selected').text();
-
-                $.ajax({
-                    url: getUrl, // Endpoint na backendu
-                    method: "POST",
-                    contentType: 'application/json',
-                    data: JSON.stringify({ osm_id: osm_id, feature: feature, wr_name: wr_name }),
-                    success: function(data) {
-                        console.log("Data OK")
-                        
-                    },
-                    error: function(error) {
-                        console.error("Error loading data:", error);
-                    }
-                });
-            });
-        });
-    }
-    getData("/update_dataset", "#update-btn")
-</script>
-
-<script>
     // Připojení k WebSocket serveru
     var socket = io.connect('http://' + document.domain + ':' + location.port);
 
@@ -342,10 +318,19 @@
         }, 10000);
     });
 
+    socket.on("redirect", function(data) {
+        sessionStorage.setItem("flashMessage", data.message);
+        window.location.href = data.url;  // Přesměrování na danou URL
+    });
+
     // Odeslání požadavku na spuštění analýzy
     $(document).ready(function() {
         $("#update-btn").click(function() {
-            socket.emit("start_analysis", {});
+            const osm_id = $('#sel_wr').val();
+            const feature = $('#select_wq').val();
+            const wr_name = $('#sel_wr option:selected').text();
+
+            socket.emit("start_analysis", {osm_id: osm_id, feature: feature, wr_name: wr_name});
         });
     });
 </script>
