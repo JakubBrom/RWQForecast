@@ -1,5 +1,5 @@
 // Načtení dat pro interpolaci a vytvoření heatmapy
-function plotTimeSeries(dataUrl, divId){
+function plotSpatialWR(dataUrl, divId){
     // dataUrl: URL pro získání dat z backendu
     // divId: ID divu, do kterého se graf vykreslí
     $(document).ready(function() {
@@ -27,7 +27,7 @@ function plotTimeSeries(dataUrl, divId){
                     [0, 'rgb(0, 12, 140)'],
                     [0.5, 'rgb(228, 245, 104)'],
                     [1, 'rgb(7, 125, 25)']
-                    ];
+                    ];                    
 
                     const maskColorScale = [
                     [0, 'white'],
@@ -48,16 +48,16 @@ function plotTimeSeries(dataUrl, divId){
                             color: 'rgb(150,150,150)'
                           },
                         colorscale: customColorscale,                        
-                        //zmin: Math.min(...z.flat()), // Dynamické minimum
-                        //zmax: Math.max(...z.flat()), // Dynamické maximum
+                        zmin: Math.min(...z.flat()), // Dynamické minimum
+                        zmax: Math.max(...z.flat()), // Dynamické maximum
                         name: 'Data',
-                        zmin: 0,
-                        zmax: 600,
+                        //zmin: 0,
+                        //zmax: 600,
                         hovertemplate: '%{z:.2f}<extra></extra>',
                         colorbar:{
                             title:{text:'Concentration',
-                            side: 'right'    
-                            },                               
+                            side: 'right',   
+                            },               
                         }
                     };
 
@@ -102,7 +102,13 @@ function plotTimeSeries(dataUrl, divId){
                         paper_bgcolor: 'rgb(255,255,255,0)',
                     };
 
-                    Plotly.newPlot(divId, data, layout);
+                    //Plotly.newPlot(divId, data, layout);
+                    try {
+                        Plotly.newPlot(divId, data, layout);
+                    } catch (error) {
+                        console.error("An error during data intepolation:", error);
+                        displayNoDataMessage(divId);
+                    }
                 },
                 error: function(error) {
                     console.error("Chyba při načítání dat:", error);
@@ -143,4 +149,31 @@ function plotTimeSeries(dataUrl, divId){
     });
 }
 
-plotTimeSeries('/interpolate_data', 'interp_chart');
+plotSpatialWR('/interpolate_data', 'interp_chart');
+
+function displayNoDataMessage(divId) {
+    var data = [];
+    var layout = {
+        annotations: [
+            {
+                text: "The data cannot be dispayed",
+                xref: "paper",
+                yref: "paper",
+                x: 0.5,
+                y: 0.5,
+                showarrow: false,
+                font: {
+                    size: 24,
+                    color: "gray"
+                }
+            }
+        ],
+        xaxis: { visible: false },
+        yaxis: { visible: false },
+        plot_bgcolor: "white",
+        paper_bgcolor: 'rgb(255,255,255,0)',
+        showlegend: false
+    };
+
+    Plotly.newPlot(divId, data, layout);
+}
