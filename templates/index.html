@@ -10,8 +10,22 @@
                 </br>
 
                 <h3>Forecast of harmful algal blooms in freshwater reservoirs from Sentinel 2 satellite data</h3>
-                
-                <a href='/about'>Read more</a>
+            </br>
+                <p>
+
+                    <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='/about'" style="width: 250px; margin-right: 30px;">Read more</button>
+
+              
+                {% if current_user.is_authenticated %}
+
+                    <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='/results'" style="width: 250px;">Analysis</button>
+
+                {% else %}
+
+                    <button type="button" class="btn btn-secondary btn-lg" onclick="window.location.href='/login'" style="width: 250px;">Login</button>
+
+                {% endif %} 
+                </p>
             </div>
         </div>
 
