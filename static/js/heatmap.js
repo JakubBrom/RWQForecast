@@ -9,6 +9,9 @@ function plotSpatialWR(dataUrl, divId){
             const date = $('#datepicker').val();
 
             $('#spinner').show();
+            $('#controls').show(); // Zobrazení inputu pro zmin a zmax
+            $('#downl-vect-text').show(); // Zobrazení textu pro stažení vektorů
+            $('#downl-vect').show(); // Zobrazení tlačítka pro stažení vektorů
 
             $.ajax({
                 url: dataUrl,  // Endpoint na backendu
@@ -34,6 +37,10 @@ function plotSpatialWR(dataUrl, divId){
                     [1, 'white']
                     ];
 
+                    // Hodnoty pro zmin a zmax
+                    originalZmin = Math.min(...z.flat()); // Dynamické minimum
+                    originalZmax = Math.max(...z.flat()); // Dynamické maximum
+
                     // Vykreslení heatmapy/contour mapy
                     const mapData = {
                         z: z,
@@ -57,7 +64,8 @@ function plotSpatialWR(dataUrl, divId){
                         colorbar:{
                             title:{text:'Concentration',
                             side: 'right',   
-                            },               
+                            },
+                            len: 0.8,
                         }
                     };
 
@@ -77,34 +85,50 @@ function plotSpatialWR(dataUrl, divId){
 
                     const data = [mapData, maskData];
 
-                    const numRows = x.Length;
-                    const numCols = y.Length;
+                    const numCols = x.length;
+                    const numRows = y.length;
+
+                    const container = document.getElementById(divId);
+                    const containerWidth = container.clientWidth;
+                    const aspectRatio = numRows / numCols;
+                    const calculatedHeight = containerWidth * aspectRatio;
 
                     const layout = {                       
-                        xaxis: {
-                            scaleanchor: 'y', // Ujistí se, že osy x a y mají stejné měřítko
-                            constrain: 'domain', // Zachová rozsah osy x
-                            title: 'Distance x (pixels)'
-                          },
-                          yaxis: {
-                            constrain: 'domain', // Zachová rozsah osy y
-                            title: 'Distance y (pixels)'
-                          },
-                        width: numCols,  // Šířka grafu
-                        height: numRows, // Výška grafu
+                        // xaxis: {
+                        //     scaleanchor: 'y', // Ujistí se, že osy x a y mají stejné měřítko
+                        //     constrain: 'domain', // Zachová rozsah osy x
+                        //     title: 'Distance x (pixels)'
+                        //   },
+                        //   yaxis: {
+                        //     constrain: 'domain', // Zachová rozsah osy y
+                        //     title: 'Distance y (pixels)'
+                        //   },
+                        width: containerWidth,
+                        height: calculatedHeight,
                         margin: {
                             l: 30,
                             r: 30,
                             b: 30,
                             t: 30,
-                            pad: 5
+                            pad: 0
                         },
                         paper_bgcolor: 'rgb(255,255,255,0)',
                     };
 
+                    const config = {
+                        responsive: true
+                      };
+
                     //Plotly.newPlot(divId, data, layout);
                     try {
-                        Plotly.newPlot(divId, data, layout);
+                        
+                        Plotly.purge(divId);
+                        Plotly.newPlot(divId, data, layout, config);
+
+                        // Získání hodnot pro zmin a zmax z dat
+                        document.getElementById("zmin").value = Math.round(mapData.zmin);
+                        document.getElementById("zmax").value = Math.round(mapData.zmax);
+
                     } catch (error) {
                         console.error("An error during data intepolation:", error);
                         displayNoDataMessage(divId);
@@ -135,10 +159,11 @@ function plotSpatialWR(dataUrl, divId){
                     yaxis: { visible: false },
                     plot_bgcolor: "white",
                     paper_bgcolor: 'rgb(255,255,255,0)',
-                    showlegend: false
+                    showlegend: false,
                     };
 
                     // Zobrazení grafu v HTML elementu s id 'plot'
+                    Plotly.purge(divId);
                     Plotly.newPlot(divId, data, layout);
                 },
                 complete: function() {  
@@ -172,8 +197,34 @@ function displayNoDataMessage(divId) {
         yaxis: { visible: false },
         plot_bgcolor: "white",
         paper_bgcolor: 'rgb(255,255,255,0)',
-        showlegend: false
+        showlegend: false,
     };
-
+    Plotly.purge(divId);
     Plotly.newPlot(divId, data, layout);
+}
+
+// Funkce pro aktualizaci zmin a zmax hodnot na základě uživatelského vstupu
+function updatePlot() {
+    const spinner = document.getElementById("spinner");
+    spinner.style.display = "block";  // požadujeme zobrazení
+
+    setTimeout(() => {
+        let newZmin = parseFloat(document.getElementById("zmin").value);
+        let newZmax = parseFloat(document.getElementById("zmax").value);
+
+        Plotly.restyle('interp_chart', { zmin: [newZmin], zmax: [newZmax] })
+            .then(() => {
+                spinner.style.display = "none";
+            })
+            .catch((error) => {
+                console.error("Chyba při aktualizaci grafu:", error);
+                spinner.style.display = "none";
+            });
+    }, 0);
+}
+
+function resetPlot() {
+    document.getElementById("zmin").value = Math.round(originalZmin);
+    document.getElementById("zmax").value = Math.round(originalZmax);
+    updatePlot();  // Aktualizace grafu s výchozími hodnotami
 }
