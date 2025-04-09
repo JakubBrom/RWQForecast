@@ -241,7 +241,7 @@ def release_lock_key(key, status=True):
 def run_analysis(osm_id=None, wq_feature=None):
     
     # Get variables from html/js        # TODO: tady asi budou nějaký vstupy pro analýzy   
-    user_id = session.get("user_id")
+    user_id = current_user.get_id()
     sid = connected_users.get(user_id)
 
     print("SID je: ", sid)
@@ -301,7 +301,7 @@ def select_waterbody():
     lyr_point_position = data.get("firstVrt")   # get first vertex position of the layer
     wqf_name = data.get("wq_param")             # get wq_feature name
 
-    user_id = session.get("user_id")
+    user_id = current_user.get_id()
     print("User ID je: ", user_id)
     sid = connected_users.get(user_id)
     print("SID je: ", sid)
@@ -432,7 +432,7 @@ def update_dataset(data):
     """
     
     # Set SocketIO session
-    user_id = session.get("user_id")
+    user_id = current_user.get_id()
     sid = connected_users.get(user_id)    
     
     # Run the analysis

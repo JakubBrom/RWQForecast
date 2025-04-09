@@ -1,4 +1,5 @@
 from flask import session, request
+from flask_login import current_user
 from flask_socketio import emit
 
 connected_users = {}
@@ -7,7 +8,8 @@ def register_socketio_events(socketio):
 
     @socketio.on("connect")
     def handle_connect():
-        user_id = session.get("user_id")  # Pokud je uživatel přihlášen
+        # user_id = session.get("user_id")  # Pokud je uživatel přihlášen
+        user_id = current_user.get_id()  # Získání ID uživatele z Flask-Login
         if not user_id:
             user_id = request.sid  # Pokud ne, použijeme request.sid
 

@@ -26,10 +26,6 @@ def login_post():
 
     user = Users.query.filter_by(email=email).first()
 
-    # user_id for SocketIO
-    user_id = str(uuid.uuid4())  # Generate a new UUID for the user_id
-    session['user_id'] = user_id  # Store the user_id in the session
-
     # check if the user actually exists
     # take the user-supplied password, hash it, and compare it to the hashed password in the database
     if not user or not check_password_hash(user.password, password):
