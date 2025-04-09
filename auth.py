@@ -4,6 +4,7 @@ from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
 import uuid
+from datetime import datetime
 from .models import Users
 from . import db, mail
 
@@ -77,6 +78,7 @@ def signup_post():
     name = request.form.get('name')
     password = request.form.get('password')
     confirm_password = request.form.get('confirm_password')
+    rdate = datetime.now()
     
     if password != confirm_password:
         flash('Passwords do not match!')
@@ -89,7 +91,7 @@ def signup_post():
         return redirect(url_for('auth.signup'))
 
     # create a new user with the form data. Hash the password so the plaintext version isn't saved.
-    new_user = Users(email=email, name=name, password=generate_password_hash(password, method='pbkdf2:sha256'), is_verified=False)
+    new_user = Users(email=email, name=name, password=generate_password_hash(password, method='pbkdf2:sha256'), is_verified=False, rdate=rdate)
 
     # add the new user to the database
     db.session.add(new_user)

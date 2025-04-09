@@ -8,3 +8,4 @@ class Users(UserMixin, db.Model):
     name = db.Column(db.String(1000))
     is_verified = db.Column(db.Boolean, default=False)
     urole = db.Column(db.Integer, default=2)
+    rdate = db.Column(db.DateTime, server_default=db.func.now())
