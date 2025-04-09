@@ -21,7 +21,7 @@
 <div class="container-fluid" style="background-color: rgb(242, 242, 242);">
     <div class="row">
 
-        <div class="col-12 col-lg-4">
+        <div class="col-12 col-lg-3">
             <h2 class="mb-3">Locality and parameters selection</h2>   
                 
                 <form id="select-results" style="margin-top: 20px;">                   
@@ -62,7 +62,7 @@
             </div>                
             
         </div>
-        <div class="col-12 col-lg-8" id="map_result", style="height: 600px;"></div>
+        <div class="col-12 col-lg-9" id="map_result", style="height: 600px;"></div>
     </div>
 </div>
 
@@ -70,7 +70,7 @@
     <div class="row gy-4 mt-4 mb-4">
   
       <!-- Levý sloupec: tabulka a tlačítka -->
-      <div class="col-12 col-lg-4">
+      <div class="col-12 col-lg-3">
         <h2 class="mb-3">Water reservoir information</h2>
   
         <table class="table table-striped">
@@ -92,7 +92,7 @@
       </div>
   
       <!-- Pravý sloupec: graf -->
-      <div class="col-12 col-lg-8">     <!-- TODO: upravit na col-lg-4 -->
+      <div class="col-12 col-lg-9">     <!-- TODO: upravit na col-lg-4 -->
         <h2 class="mb-3">Time series</h2>
         <div id="ts_chart" style="width: 100%; min-height: 600px; display: none;"></div>
       </div>
@@ -111,23 +111,21 @@
 <div class="container-fluid" style="background-color: rgb(242, 242, 242);">
     <div class="row gy-4 mt-4 mb-4">
 
-        <div class="col-12 col-lg-4">
+        <div class="col-12 col-lg-3">
             <h2>Spatial distribution analysis</h2>
             <!-- Selected water reservoir -->
             <label for="wr_name" class="form-label">Reservoir name:</label>
             <input type="text" class="form-control" id="wr_selected" name="wr_name" readonly><br>
 
             <!-- Calendar -->
-            <label for="datepicker" class="form-label">Select data for analysis:</label>
+            <label for="datepicker" class="form-label">Select date for analysis:</label>
             <input type="date" id="datepicker" name="datepicker" class="form-control" min="2015-06-01">
 
             <div class="d-grid gap-2 mt-4">
                 <button type="button" class="btn btn-primary" id="interp-btn" style="margin-bottom: 15px;">Confirm selection</button>
             </div>
 
-        </div>
 
-        <div class="col-12 col-lg-4">
             <h2>Statistics</h2>
             </br>
 
@@ -144,17 +142,25 @@
 
             <h4 class="mt-4 mb-3" id="downl-vect-text" style="display: none">Download data</h4>
             <div class="d-grid gap-2 mb-4">
-                <button type="button" class="btn btn-sm btn-secondary" id="downl-vect" style="display: none">Download data</button>
+                <button type="button" class="btn btn-sm btn-secondary" id="downl-vect" style="display: none">Download vector points</button>
             </div>
         </div>
 
-        <div class="col-12 col-lg-4">
+        <div class="col-12 col-lg-9">
 
             <div class="container-fluid">
                 <div class="row g-3 align-items-start">
-            
+                    <!-- Spinner -->
+                    <div id="spinner" class="col-12 col-md-1" style="display: none;">
+                        <div class="loader"></div>
+                    </div>
+                
+                    <!-- Graf -->
+                    <div class="col-12 col-md" id="interp_chart" style="min-width: 250px;"></div>
+
                     <!-- Vstupy pro škálu -->
-                    <div id="controls" style="display: none;">
+                    <div class="col-12 col-lg-2" id="controls" style="display: none;">
+                        <h4>Scale settings</h4>
                         <div class="mb-2">
                         <label for="zmin" class="form-label">Min:</label>
                         <input type="number" id="zmin" step="1" class="form-control">
@@ -167,15 +173,8 @@
                         <button type="button" class="btn btn-sm btn-secondary" onclick="updatePlot()">Update</button>
                         <button type="button" class="btn btn-sm btn-secondary" onclick="resetPlot()">Reset</button>
                         </div>
-                    </div>
-                
-                    <!-- Spinner -->
-                    <div id="spinner" class="col-12 col-md-1" style="display: none;">
-                        <div class="loader"></div>
-                    </div>
-                
-                    <!-- Graf -->
-                    <div class="col-12 col-md" id="interp_chart" style="min-width: 250px;"></div>
+                    </div> 
+                    
             
                 </div>
             </div>
