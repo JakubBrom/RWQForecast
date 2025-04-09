@@ -32,6 +32,7 @@ water_reservoirs = 'reservoirs'
 user_reservoirs = 'user_reservoirs'
 db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
 db_user_credentials = 'user_credentials'
+db_users = 'users'
 
 # Set the minimum area of the reservoir
 min_area = 1.0      # TODO: possibly get it from the setting file
@@ -260,7 +261,6 @@ def run_analysis(osm_id=None, wq_feature=None):
             conn.authenticate_oidc_client_credentials(provider_id=OPENEO_PROVIDER, client_id=clid, client_secret=clse)
             
             print("Authentication is OK. Starting the calculation process.")
-            socketio.emit("flash_message", {"category": "info", "message": "The process has been authenticated. Calculation is running now."}, room=sid)
             
             # Calculation
             if osm_id:
@@ -339,6 +339,10 @@ def select_waterbody():
 
         # Conversion to WGS 84
         if not gdf_sel_utm.empty:
+            # Send the Flash message
+            socketio.emit("flash_message", {"category": "info", "message": f"Your request for analysis of water reservoir {reserv_name} ({osm_id}) has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
+            
+            # Transform to WGS 84
             gdf_sel_wgs = gdf_sel_utm.to_crs(epsg_orig)     # Convert to WGS 84
             gdf_sel_wgs.reset_index(drop=True, inplace=True)
             
@@ -353,19 +357,19 @@ def select_waterbody():
             gdf_select.to_postgis('reservoirs', db.engine, if_exists='append', index=False)
             
         else:
-            print("The reservoir is too small for the calculation.")
-            e_subject = 'The forecast has not been finished'
-            e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The reservoir is too small for the calculation.'
-            # Send the info e-mail
-            sendInfoEmail(current_user.email, e_subject, e_content)
+            print(f"The reservoir {reserv_name} is too small for the calculation.")
+            # e_subject = 'The forecast has not been finished'
+            # e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The reservoir is too small for the calculation.'
+            # # Send the info e-mail
+            # sendInfoEmail(current_user.email, e_subject, e_content)
 
             # return render_template("select_wr.html")
-            socketio.emit("flash_message", {"category": "warning", "message": "The reservoir is too small for the calculation."}, room=sid)
+            socketio.emit("flash_message", {"category": "warning", "message": f"The reservoir {reserv_name} ({osm_id}) is too small for the calculation. Choose another one."}, room=sid)
             return render_template("select_wr.html")    # redirect(url_for('main.results'))
 
     else:
         print("The reservoir is already in the DB.")
-        socketio.emit("flash_message", {"category": "warning", "message": "The reservoir is already in the DB. The data will be updated."}, room=sid)
+        socketio.emit("flash_message", {"category": "info", "message": f"The reservoir {reserv_name} ({osm_id}) is already in the DB. The data will be updated. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
 
     # 5. Clear the cache
     try:
@@ -394,8 +398,8 @@ def select_waterbody():
         run_analysis(osm_id=osm_id, wq_feature=wqf_name)      # Run the calculation process
         
     except Exception as e:
-        print(f"Error in the calculation process: {e}")
-        flash(f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.', 'warning')
+        print(f"Error in the calculation process for {osm_id}: {e}")
+        socketio.emit("flash_message", {"category": "warning", "message": f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'}, room=sid)
         
         # Send the info e-mail
         e_subject = 'The forecast has not been finished'
@@ -429,10 +433,7 @@ def update_dataset(data):
     
     # Set SocketIO session
     user_id = session.get("user_id")
-    sid = connected_users.get(user_id)
-    
-    # Send the Flash message
-    socketio.emit("flash_message", {"category": "info", "message": "Your request has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
+    sid = connected_users.get(user_id)    
     
     # Run the analysis
     try:
@@ -441,8 +442,9 @@ def update_dataset(data):
         wq_feature = data.get('feature')
         reserv_name = data.get('wr_name')
         
-        print(reserv_name)
-        
+        # Send the Flash message
+        socketio.emit("flash_message", {"category": "info", "message": f"Your request for water reservoir {reserv_name} ({osm_id}) data update has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
+    
         run_analysis(osm_id=osm_id, wq_feature=wq_feature)      # Run the calculation process
         
     except Exception as e:
@@ -609,6 +611,19 @@ def interpolate_data():         # TODO: výstup jako rast - stačí IDW --> do m
     fvalue = "feature_value"
     
     print(f"Interpolating the data for the reservoir: {osm_id}, feature: {feature}, date: {date}")
+    
+    # Test if tere is a data for the particular reservoir and date
+    query = text(f"SELECT EXISTS (SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}')")
+    try:
+        result = db.session.execute(query)
+        result = result.scalar()
+    except exc.SQLAlchemyError as e:
+        print(f"Error: {e}")
+        result = False
+    
+    if not result:
+        print(f"No data for the reservoir {osm_id} and date {date}.")
+        return jsonify({"error": "No data for the reservoir and date."}), 400
         
     # Get the data for the particular reservoir and date from the DB
     query = text(f"SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}'")  # Get the time series data for the particular reservoir
@@ -702,6 +717,9 @@ def data_info():                                # TODO: dodělat! --> přidat od
     feature = data['feature']
     wr_name = data['wr_name']
     
+    if not osm_id:
+        return jsonify({"error": "No osm_id provided"}), 400
+    
     # Get area from DB
     query_area = text(f"SELECT area FROM {water_reservoirs} WHERE osm_id = '{osm_id}'")
     df_wr_area = pd.read_sql_query(query_area, db.engine)
@@ -735,7 +753,7 @@ def data_info():                                # TODO: dodělat! --> přidat od
         formatted_max_fdate = "No data"
         
     
-    # TODO: Get prediction model name 
+    # Stat. table - information about reservoir and TS dataset
     
     data = [
         {'info': 'Name', 'val1': wr_name, 'val2': ''},
@@ -745,9 +763,9 @@ def data_info():                                # TODO: dodělat! --> přidat od
         {'info': 'Data from-to', 'val1': formatted_min_date, 'val2': formatted_max_date},
         {'info': 'Prediction', 'val1': formatted_min_fdate, 'val2': formatted_max_fdate},
         {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},
-        {'info': '-', 'val1': 'ID:', 'val2': 'f0f13295-2068-436a-a900-a7fff15ec9a7'},
-        {'info': '-', 'val1': 'Test accuracy:', 'val2': '0.87'},
-        {'info': '-', 'val1': 'Valid for reservoir:', 'val2': 'Default'},
+        {'info': '', 'val1': 'ID:', 'val2': 'f0f13295-2068-436a-a900-a7fff15ec9a7'},        # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
+        {'info': '', 'val1': 'Test accuracy:', 'val2': '0.87'},
+        {'info': '', 'val1': 'Valid for reservoir:', 'val2': 'Default'},
     ]
     
     return jsonify(data)
@@ -759,22 +777,36 @@ def data_spatial_info():                                # TODO: dodělat!
     Information about water reservoir and about dataset
     """
     
-    date_str = '2022-06-19'
+    # Get data from frontend
+    data = request.json
+    osm_id = data['osm_id']
+    feature = data['feature']
+    wr_name = data['wr_name']
+    date_str = data['sel_date']
+    
+    # Transforma date string to date object
     date_obj = datetime.strptime(date_str, '%Y-%m-%d')
     formatted_date = date_obj.strftime('%d. %m. %Y')
     
+    # Get Number of points
+    query_points = text(f"SELECT COUNT(*) FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date_str}'")
+    df_points = pd.read_sql_query(query_points, db.engine)
+    n_points = df_points['count'].values[0]
+    
+    # Interpolate the data and get the statistics
+    
+    
     data = [
-        {'info': 'Name', 'val1': 'Velký Tisý', 'val2': ''},
-        {'info': 'OSM_ID', 'val1': 15444638, 'val2': ''},
-        {'info': 'Area (ha)', 'val1': 211.36, 'val2': ''},
-        {'info': 'Feature', 'val1': 'ChlA', 'val2': ''},
+        {'info': 'Name', 'val1': wr_name, 'val2': ''},
+        {'info': 'OSM_ID', 'val1': osm_id, 'val2': ''},
+        {'info': 'Feature', 'val1': feature, 'val2': ''},
         {'info': 'Date', 'val1': formatted_date, 'val2': ''},
-        {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},
-        {'info': 'Statistics', 'val1': 'Mean:', 'val2': '250.44'},
-        {'info': '', 'val1': 'Number of points:', 'val2': '85'},
-        {'info': '', 'val1': 'Median:', 'val2': '211.5'},
-        {'info': '', 'val1': 'Max.', 'val2': '421.5'},
-        {'info': '', 'val1': 'Min.', 'val2': '112.4'},
+        {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},      # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
+        {'info': 'Statistics', 'val1': 'Number of points:', 'val2': str(n_points)},
+        {'info': '', 'val1': 'Mean:', 'val2': '-'},        
+        {'info': '', 'val1': 'Median:', 'val2': '-'},
+        {'info': '', 'val1': 'Max.', 'val2': '-'},
+        {'info': '', 'val1': 'Min.', 'val2': '-'},
     ]
     
     return jsonify(data)   
@@ -812,6 +844,43 @@ def download_ts():
     # Create GeoJson file
     
     return 
+
+@main.route('/delete_ask')
+def delete_ask():
+    """Ask for account deleting confirmation"""
+    
+    flash("""
+        <form action="/delete_account" method="post" style="display: inline;">
+            <span>Do you realy want to delete this account?</span>
+            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+        </form>
+        <a href="/" class="btn btn-secondary btn-sm ms-2">Cancel</a>
+    """, 'warning')
+    
+    return redirect(url_for('main.profile'))
+
+@main.route('/delete_account', methods=['POST'])
+def delete_account():
+    """Delete the user account and all data related to the user."""
+    
+    # Get the user ID
+    user_id = current_user.id
+    print(f"Deleting the account for user ID: {user_id}")    
+    
+    # Delete the user account from the DB
+    
+    query_del_user = text(f"DELETE FROM {db_users} WHERE id = {user_id};")
+    querty_del_user_res = text(f"DELETE FROM {user_reservoirs} WHERE user_id = {user_id};")
+    query_del_user_cred = text(f"DELETE FROM {db_user_credentials} WHERE user_id = {user_id};")
+    
+    db.session.execute(query_del_user)
+    db.session.execute(querty_del_user_res)
+    db.session.execute(query_del_user_cred)
+    db.session.commit()
+    
+    print("User account has been deleted.")
+    
+    return redirect(url_for('main.index'))
 
 # Custom error pages
 # Invalid URL
