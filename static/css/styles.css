@@ -108,3 +108,18 @@ hallowenbody {
     overflow-y: auto;
     height: 70vh;
 }
+
+/* Desktop default */
+@media (max-width: 768px) {
+    #controls .form-control {
+      width: 100%;
+    }
+
+    #controls .btn {
+      flex: 1 1 48%;
+    }
+
+    #controls .d-flex {
+      justify-content: space-between;
+    }
+  }
