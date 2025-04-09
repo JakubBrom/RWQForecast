@@ -8,6 +8,9 @@ function plotTimeSeries(dataUrl, divId){
             const osm_id = $('#sel_wr').val();
             const feature = $('#select_wq').val();
 
+            $('#ts_chart').show();
+            $('#forecast_chart').show();
+
             $.ajax({
                 url: dataUrl,  // Endpoint na backendu
                 type: 'POST',
