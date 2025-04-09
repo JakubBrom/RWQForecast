@@ -1,7 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 
+
+
 <div class="container">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="alert alert-{{ category }}" role="alert">
+          {{ msg|safe }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
   <h1 class="title">
       Hi {{ name }} !
     </h1>
@@ -66,6 +79,31 @@
               <div class="mb-3">
                 <form action="/oeo_form">
                   <button type="submit" class="btn btn-primary w-100 ">Add new Credentials</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseThree" aria-expanded="false" aria-controls="flush-collapseThree">
+          <b>Delete Account</b>
+        </button>
+      </h2>
+      <div id="flush-collapseThree" class="accordion-collapse collapse" data-bs-parent="#accordeon-profile">
+        
+        <div class="accordion-body">
+
+          <p>Once you delete the account, there is no going back. Please be certain.</p>
+
+          <div class="container d-flex justify-content-left">
+            <div class="p-4" style="width: 350px;">      
+              <div class="mb-3">
+                <form action="/delete_ask">
+                  <button type="submit" class="btn btn-danger w-100 ">Delete Account</button>
                 </form>
               </div>
             </div>
