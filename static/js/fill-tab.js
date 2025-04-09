@@ -5,12 +5,13 @@ function loadData(getUrl, tabId, confId) {
             const osm_id = $('#sel_wr').val();
             const feature = $('#select_wq').val();
             const wr_name = $('#sel_wr option:selected').text();
+            const sel_date = $('#datepicker').val();
 
             $.ajax({
                 url: getUrl, // Endpoint na backendu
                 method: "POST",
                 contentType: 'application/json',
-                data: JSON.stringify({ osm_id: osm_id, feature: feature, wr_name: wr_name }),
+                data: JSON.stringify({ osm_id: osm_id, feature: feature, wr_name: wr_name, sel_date: sel_date }),
                 success: function(data) {
                     const tableBody = $(tabId);
                     tableBody.empty(); // Smazání stávajícího obsahu tabulky
