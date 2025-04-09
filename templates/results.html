@@ -19,99 +19,99 @@
 <h1>Water quality analysis</h1>
 
 <div class="container-fluid" style="background-color: rgb(242, 242, 242);">
-    <div class="row" style="margin-top: 40px;">
-
-        <div class="col-1" style="height: 600px; width: 33%;">
-            
-            <h2>Locality and parameters selection</h2>
-
-            <form id="select-results" style="margin-top: 20px;">
-
-                <label for="res_name" class="form-label">Select reservoir name:</label>
-                <select class="form-select" id="sel_wr" name="res_name">
-                    <option value="">Select reservoir from the list or from the map</option>
-                </select>
-                </br>
-                
-                <label for="wq_feature" class="form-label">Select water quality feature:</label>
-                <select class="form-select" id="select_wq" name="wq_feature">
-                    <option value="ChlA">ChlA</option>
-                    <option value="TSS" disabled>TSS</option>
-                    <option value="PC" disabled>PC</option>
-                    <option value="APC" disabled>APC</option>
-                    <option value="PE" disabled>PE</option>
-                    <option value="ChlB" disabled>ChlB</option>
-                    <option value="CX" disabled>CX</option>
-                </select>
-                </br>
-
-                <!-- TODO:
-                <label for="model_name" class="form-label">Select prediction model:</label>
-                <select class="form-select" id="sel_model" name="model_name">
-                    <option value=""></option>
-                    <option value="f0f13295-2068-436a-a900-a7fff15ec9a7">AI_model_test_3 (default)</option>
-                </select>
-                -->
-                </br>
-                
-                <button type="button" class="btn btn-primary" id="confirm-btn">Confirm selection</button>
-
-                <!-- <button type="button" class="btn btn-success" id="update-btn" onclick="window.location.href='/start-analysis'">Update dataset</button> -->
-                <button type="button" class="btn btn-success" id="update-btn">Update dataset</button>
-
-                <a href='/select'>
-                    <button type="button" class="btn btn-success" id="new-wr-btn" href='/select'>Add new reservoir</button>
-                </a>
-
-            </form>
-        </div>
-        <div class="col" id="map_result" style="height: 600px;"></div>
-    </div>
-</div>
-
-<div class="container-fluid" style="width: 100%;">
-    <div class="row" style="margin-top: 30px;">
-        <div class="col-1", style="width: 33%;">
-            <h2>Water reservoir information</h2>
-            <!-- Vykreslení tabulky se statistikami-->
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th></th>
-                        <th></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                </tbody>
-            </table>
-
-            <h4>Download data</h4>
-                <button type="button" class="btn btn-secondary" id="downl-ts" style="margin-bottom: 15px;">Download time series</button>
-                <button type="button" class="btn btn-secondary" id="downl-fc" style="margin-bottom: 15px;">Download forecast</button>
-        </div>
-
-        <div class="col">
-            <h2>Time series</h2>
-            <!-- Vykreslení grafu pro časovou řadu-->
-            <div id="ts_chart" style="width: 100%; height: 90%;"></div>          
-        </div>
-
-        <!-- TODO:
-        <div class="col">
-            <h2>Forecast</h2> -->
-            <!-- Vykreslení grafu pro předpověď -->
-            <!-- <div id="forecast_chart" style="width: 100%; height: 90%;"></div> 
-        </div>
-        -->
-        
-    </div>
-</div>
-
-<div class="container-fluid" style="background-color: rgb(242, 242, 242); width: 100%;">
     <div class="row">
 
-        <div class="col">
+        <div class="col-12 col-lg-4">
+            <h2 class="mb-3">Locality and parameters selection</h2>   
+                
+                <form id="select-results" style="margin-top: 20px;">                   
+
+                    <label for="res_name" class="form-label">Select reservoir name:</label>
+                    <select class="form-select" id="sel_wr" name="res_name">
+                        <option value="">Select reservoir from the list or from the map</option>
+                    </select>
+
+                    </br>
+                    
+                    <label for="wq_feature" class="form-label">Select water quality feature:</label>
+                    <select class="form-select" id="select_wq" name="wq_feature">
+                        <option value="ChlA">ChlA</option>
+                        <option value="TSS" disabled>TSS</option>
+                        <option value="PC" disabled>PC</option>
+                        <option value="APC" disabled>APC</option>
+                        <option value="PE" disabled>PE</option>
+                        <option value="ChlB" disabled>ChlB</option>
+                        <option value="CX" disabled>CX</option>
+                    </select>
+
+                    <!-- TODO:
+                    <label for="model_name" class="form-label">Select prediction model:</label>
+                    <select class="form-select" id="sel_model" name="model_name">
+                        <option value=""></option>
+                        <option value="f0f13295-2068-436a-a900-a7fff15ec9a7">AI_model_test_3 (default)</option>
+                    </select>
+                    -->
+            </form>
+
+            <div class="d-grid gap-2 mt-4">        
+                <button type="button" class="btn btn-primary" id="confirm-btn">Confirm selection</button>
+            </div>
+            <div class="d-grid gap-2 mt-4 mb-4">     
+                <button type="button" class="btn btn-success" id="update-btn">Update dataset</button>                
+                <a href="/select" class="btn btn-success" id="new-wr-btn">Add new reservoir</a>
+            </div>                
+            
+        </div>
+        <div class="col-12 col-lg-8" id="map_result", style="height: 600px;"></div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row gy-4 mt-4 mb-4">
+  
+      <!-- Levý sloupec: tabulka a tlačítka -->
+      <div class="col-12 col-lg-4">
+        <h2 class="mb-3">Water reservoir information</h2>
+  
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th></th>
+              <th></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+  
+        <h4 id="downl_ts_text" class="mt-4 mb-3" style="display: none;">Download data</h4>
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-sm btn-secondary" id="downl-ts" style="display: none;">Download time series</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="downl-fc" style="display: none;">Download forecast</button>
+        </div>
+      </div>
+  
+      <!-- Pravý sloupec: graf -->
+      <div class="col-12 col-lg-8">     <!-- TODO: upravit na col-lg-4 -->
+        <h2 class="mb-3">Time series</h2>
+        <div id="ts_chart" style="width: 100%; min-height: 600px; display: none;"></div>
+      </div>
+  
+      <!-- TODO: sloupec pro forecast -->
+      <!--
+      <div class="col-12 col-lg-4">
+        <h2 class="mb-3">Forecast</h2>
+        <div id="forecast_chart" style="width: 100%; min-height: 600px;"></div>
+      </div>
+        -->
+  
+    </div>
+  </div>
+
+<div class="container-fluid" style="background-color: rgb(242, 242, 242);">
+    <div class="row gy-4 mt-4 mb-4">
+
+        <div class="col-12 col-lg-4">
             <h2>Spatial distribution analysis</h2>
             <!-- Selected water reservoir -->
             <label for="wr_name" class="form-label">Reservoir name:</label>
@@ -120,12 +120,14 @@
             <!-- Calendar -->
             <label for="datepicker" class="form-label">Select data for analysis:</label>
             <input type="date" id="datepicker" name="datepicker" class="form-control" min="2015-06-01">
-            </br>
 
-            <button type="button" class="btn btn-primary" id="interp-btn" style="margin-bottom: 15px;">Confirm selection</button>            
+            <div class="d-grid gap-2 mt-4">
+                <button type="button" class="btn btn-primary" id="interp-btn" style="margin-bottom: 15px;">Confirm selection</button>
+            </div>
+
         </div>
 
-        <div class="col">
+        <div class="col-12 col-lg-4">
             <h2>Statistics</h2>
             </br>
 
@@ -140,19 +142,44 @@
                 </tbody>
             </table>
 
-            <h4>Download data</h4>
-            <button type="button" class="btn btn-secondary" id="downl-ts" style="margin-bottom: 15px;">Download data</button>
-
+            <h4 class="mt-4 mb-3" id="downl-vect-text" style="display: none">Download data</h4>
+            <div class="d-grid gap-2 mb-4">
+                <button type="button" class="btn btn-sm btn-secondary" id="downl-vect" style="display: none">Download data</button>
+            </div>
         </div>
 
-        <div class="col">
-            <!-- Vykreslení grafu interpolace hodnot-->
-            <div id="spinner" style="display: none;">
-                <div class="loader"></div>
-              </div>
-            <div id="interp_chart" style="height: 100%; object-fit: cover; margin-bottom: 15px;"></div>
+        <div class="col-12 col-lg-4">
+
+            <div class="container-fluid">
+                <div class="row g-3 align-items-start">
+            
+                    <!-- Vstupy pro škálu -->
+                    <div id="controls" style="display: none;">
+                        <div class="mb-2">
+                        <label for="zmin" class="form-label">Min:</label>
+                        <input type="number" id="zmin" step="1" class="form-control">
+                        </div>
+                        <div class="mb-2">
+                        <label for="zmax" class="form-label">Max:</label>
+                        <input type="number" id="zmax" step="1" class="form-control">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="updatePlot()">Update</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="resetPlot()">Reset</button>
+                        </div>
+                    </div>
+                
+                    <!-- Spinner -->
+                    <div id="spinner" class="col-12 col-md-1" style="display: none;">
+                        <div class="loader"></div>
+                    </div>
+                
+                    <!-- Graf -->
+                    <div class="col-12 col-md" id="interp_chart" style="min-width: 250px;"></div>
+            
+                </div>
+            </div>
         </div>
-        
     </div>
 </div>
 
@@ -289,6 +316,10 @@
         $('#confirm-btn').click(function() {
             const wr_name = $('#sel_wr option:selected').text();
             $('#wr_selected').val(wr_name);
+
+            $('#downl_ts_text').show();
+            $('#downl-ts').show();
+            $('#downl-fc').show();
         });
     });
 </script>
