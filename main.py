@@ -1,4 +1,4 @@
-from flask import request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app, session
+from flask import request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app, session, Response, send_file
 from flask_login import login_required, current_user
 from sqlalchemy import exc, text
 import osmnx as ox
@@ -18,6 +18,8 @@ from . import db, mail, socketio
 from .socketio_handlers import connected_users
 from cryptography.fernet import Fernet
 import openeo
+from scipy.interpolate import griddata
+from matplotlib import pyplot as plt
 
 from .static.libs.AIHABs import AIHABs
 
@@ -33,6 +35,10 @@ user_reservoirs = 'user_reservoirs'
 db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
 db_user_credentials = 'user_credentials'
 db_users = 'users'
+db_models = 'models_table'
+
+# Model ID  - # TODO: doplnit do skriptů, získávat z frontendu 
+model_id = 'f0f13295-2068-436a-a900-a7fff15ec9a7'
 
 # Set the minimum area of the reservoir
 min_area = 1.0      # TODO: possibly get it from the setting file
@@ -373,7 +379,8 @@ def select_waterbody():
 
     # 5. Clear the cache
     try:
-        cache_path = "cache"
+        cdir = os.path.dirname(os.path.abspath(__file__))
+        cache_path = os.path.join(cdir, "cache")
         clear_old_cache(cache_path, 600)
     except Exception:
         pass
@@ -500,9 +507,9 @@ def add_wr_to_map():
 
     return json_data
 
-@main.route("/set_data_to_selectBox", methods=['GET'])
+@main.route("/set_wr_to_selectBox", methods=['GET'])
 @login_required
-def set_data_to_selectBox():
+def set_wr_to_selectBox():
     """
     Get the list of OSM_IDs and reservoir names from the DB and add the list to the selection box.
     """
@@ -521,9 +528,41 @@ def set_data_to_selectBox():
     
     else:
         # Get the list of OSM_IDs from the DB    
-        df_data = pd.read_sql_query("SELECT osm_id, name FROM reservoirs", db.engine)
+        df_data = pd.read_sql_query("SELECT DISTINCT osm_id, name FROM reservoirs", db.engine)
+        
+    df_data = df_data.sort_values(by=['name'])
 
     data_json = df_data.to_json(orient='records')
+    
+    return jsonify(data_json)
+
+@main.route("/set_models_to_selectBox", methods=['POST'])
+@login_required
+def set_models_to_selectBox():
+    """
+    Get the list of prediction models (model IDs and model names) from the DB and add the list to the selection box.
+    """
+    
+    # Get the data from the request
+    data = request.json
+    osm_id = str(data['osm_id'])
+    feature = data['feature']
+    
+    print(f"Getting the list of models for the reservoir: {osm_id}, feature: {feature}")
+    
+    # db_models = "models_smaz"     # XXX: For testing purposes only
+    
+    # Get the list of prediction models from the DB
+    query = text(f"SELECT * FROM {db_models} WHERE feature = '{feature}'")  # Get the list of OSM_ID from the DB
+    df_data = pd.read_sql_query(query, db.engine)
+    
+    # Sort the data
+    df_data = sort_dataframe(df_data, osm_id)
+    df_data = df_data.drop("pkl_file", axis=1)  # Drop the pkl_file column
+    
+    # Convert data to json
+    data_json = df_data.to_json(orient='records')
+    
     
     return jsonify(data_json)
 
@@ -537,9 +576,10 @@ def ts_data():
     data = request.json
     osm_id = str(data['osm_id'])
     feature = data['feature']
+    model_id = data['model_id']
 
     # Get the time series data for the particular reservoir from the DB
-    query = text(f"SELECT date, feature_value FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' ORDER BY date")  # Get the time series data for the particular reservoir
+    query = text(f"SELECT date, feature_value FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND model_id = '{model_id}' ORDER BY date")  # Get the time series data for the particular reservoir
     
     df = pd.read_sql_query(query, db.engine)
 
@@ -598,9 +638,9 @@ def forecast_data():            # TODO: Přesměrovat na správnou tabulku
 
     return jsonify({'data': data_json})
 
-@main.route("/interpolate_data", methods=['POST'])
+@main.route("/contourplot_data", methods=['POST'])
 @login_required
-def interpolate_data():         # TODO: výstup jako rast - stačí IDW --> do mapy. Možná ořez podle dat
+def contourplot_data():         # TODO: doplnit model_id
     """Make an interpolation of the data for the particular reservoir and date.
     """
     # Get the data from the request
@@ -634,7 +674,7 @@ def interpolate_data():         # TODO: výstup jako rast - stačí IDW --> do m
     gdf_wr = gpd.read_postgis(query_wr, db.engine, geom_col='geometry')
 
     # Rasterize data and mask 
-    np_data, np_mask = convert_data_to_nparray(gdf_data, gdf_wr, fvalue)
+    np_data, np_mask, gdf_data_utm, bounds = convert_data_to_nparray(gdf_data, gdf_wr, fvalue)
 
     # Otočení obrazu
     np_array = np.flipud(np_data)
@@ -716,6 +756,7 @@ def data_info():                                # TODO: dodělat! --> přidat od
     osm_id = data['osm_id']
     feature = data['feature']
     wr_name = data['wr_name']
+    model_id = data['model_id']
     
     if not osm_id:
         return jsonify({"error": "No osm_id provided"}), 400
@@ -726,7 +767,7 @@ def data_info():                                # TODO: dodělat! --> přidat od
     wr_area = df_wr_area.iloc[0, 0]
         
     # Get date interval for historical data  
-    query_date = text(f"SELECT MIN(date) AS min_date, MAX(date) as max_date FROM {db_results} WHERE osm_id = '{osm_id}'")
+    query_date = text(f"SELECT MIN(date) AS min_date, MAX(date) as max_date FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND model_id = '{model_id}'")
     df_dates = pd.read_sql_query(query_date, db.engine)
     min_date = df_dates.iloc[0, 0]
     max_date = df_dates.iloc[0, 1]
@@ -752,6 +793,29 @@ def data_info():                                # TODO: dodělat! --> přidat od
         formatted_min_fdate = "No data"
         formatted_max_fdate = "No data"
         
+    # Get the prediction model data
+    query_model = text(f"SELECT model_name, test_accuracy, is_default, osm_id FROM {db_models} WHERE model_id = '{model_id}'")
+    df_model = pd.read_sql_query(query_model, db.engine)
+    print(df_model)
+    
+    model_name = df_model.iloc[0, 0]
+    test_accuracy = df_model.iloc[0, 1]
+    is_default = df_model.iloc[0, 2]
+    osm_id_model = df_model.iloc[0, 3]
+    
+    # Describe model validity 
+    if not osm_id_model:
+        if is_default:
+            osm_id_model = "General model (default)"
+        else:
+            osm_id_model = "General model"
+    else:
+        if is_default:
+            osm_id_model = wr_name + "(default)"
+        else:
+            osm_id_model = wr_name
+    
+    print(f"Model name: {model_name}, test accuracy: {test_accuracy}, is_default: {is_default}, osm_id: {osm_id_model}")
     
     # Stat. table - information about reservoir and TS dataset
     
@@ -762,10 +826,10 @@ def data_info():                                # TODO: dodělat! --> přidat od
         {'info': 'Feature', 'val1': feature, 'val2': ''},
         {'info': 'Data from-to', 'val1': formatted_min_date, 'val2': formatted_max_date},
         {'info': 'Prediction', 'val1': formatted_min_fdate, 'val2': formatted_max_fdate},
-        {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},
-        {'info': '', 'val1': 'ID:', 'val2': 'f0f13295-2068-436a-a900-a7fff15ec9a7'},        # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
-        {'info': '', 'val1': 'Test accuracy:', 'val2': '0.87'},
-        {'info': '', 'val1': 'Valid for reservoir:', 'val2': 'Default'},
+        {'info': 'Model', 'val1': 'Name:', 'val2': model_name},
+        {'info': '', 'val1': 'ID:', 'val2': model_id},
+        {'info': '', 'val1': 'Test accuracy:', 'val2': str(test_accuracy)},
+        {'info': '', 'val1': 'Valid for reservoir:', 'val2': osm_id_model},
     ]
     
     return jsonify(data)
@@ -789,27 +853,48 @@ def data_spatial_info():                                # TODO: dodělat!
     formatted_date = date_obj.strftime('%d. %m. %Y')
     
     # Get Number of points
-    query_points = text(f"SELECT COUNT(*) FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date_str}'")
+    query_points = text(f"SELECT COUNT(*) FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date_str}' AND model_id = '{model_id}'")
     df_points = pd.read_sql_query(query_points, db.engine)
     n_points = df_points['count'].values[0]
     
-    # Interpolate the data and get the statistics
+    # Interpolate the data and get the statistics    
+    # Get the data for the particular reservoir and date from the DB
+    query = text(f"SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date_str}' AND model_id = '{model_id}'")  # Get the time series data for the particular reservoir
+    gdf_data = gpd.read_postgis(query, db.engine, geom_col='geometry')
     
+    # Get reservoir polygon from the DB
+    query_wr = text(f"SELECT geometry FROM {water_reservoirs} WHERE osm_id = '{osm_id}'")  # Get the time series data for the particular reservoir
+    gdf_wr = gpd.read_postgis(query_wr, db.engine, geom_col='geometry')
     
-    data = [
+    # Interpolation of the data
+    try:
+        grid_lin_masked = interpolate_data(gdf_data, gdf_wr, fvalue='feature_value', mask=False)
+    except Exception as e:
+        print(f"Error in the interpolation: {e}")
+        return jsonify({"error": "Interpolation failed."}), 500
+    
+    # Get the statistics
+    mean = np.round(np.nanmean(grid_lin_masked), 2)
+    median = np.round(np.nanmedian(grid_lin_masked), 2)
+    max_val = np.round(np.nanmax(grid_lin_masked), 2)
+    min_val = np.round(np.nanmin(grid_lin_masked), 2)
+    stdev = np.round(np.nanstd(grid_lin_masked), 2)
+    
+    tab_data = [
         {'info': 'Name', 'val1': wr_name, 'val2': ''},
         {'info': 'OSM_ID', 'val1': osm_id, 'val2': ''},
         {'info': 'Feature', 'val1': feature, 'val2': ''},
         {'info': 'Date', 'val1': formatted_date, 'val2': ''},
         {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},      # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
         {'info': 'Statistics', 'val1': 'Number of points:', 'val2': str(n_points)},
-        {'info': '', 'val1': 'Mean:', 'val2': '-'},        
-        {'info': '', 'val1': 'Median:', 'val2': '-'},
-        {'info': '', 'val1': 'Max.', 'val2': '-'},
-        {'info': '', 'val1': 'Min.', 'val2': '-'},
+        {'info': '', 'val1': 'Mean:', 'val2': str(mean)},        
+        {'info': '', 'val1': 'Median:', 'val2': str(median)},
+        {'info': '', 'val1': 'Max.', 'val2': str(max_val)},
+        {'info': '', 'val1': 'Min.', 'val2': str(min_val)},
+        {'info': '', 'val1': 'SD', 'val2': str(stdev)},
     ]
     
-    return jsonify(data)   
+    return jsonify(tab_data)   
 
 @main.route('/get_bounds', methods=['POST'])
 @login_required
@@ -834,16 +919,78 @@ def get_bounds():
     
     return jsonify(bounds)    
 
-@main.route('/download_ts', methods=['POST'])
+@main.route('/download_ts', methods=['GET'])
 @login_required
 def download_ts():
     """Download Time Series data for the dataset"""
     
-    # Get data from DB
-    # Calculate statistics (mean, median, max, min...)
-    # Create GeoJson file
+    # Get the data from the request
+    osm_id = request.args.get('osm_id')
+    feature = request.args.get('feature')
+    model_id = request.args.get('model_id')
+    wr_name = request.args.get('wr_name')
+
+    # Get the time series data for the particular reservoir from the DB
+    query = text(f"SELECT date, feature_value FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND model_id = '{model_id}' ORDER BY date")  # Get the time series data for the particular reservoir
     
-    return 
+    df = pd.read_sql_query(query, db.engine)
+
+    # Calculation of median and mean for dates
+    aggregated = df.groupby('date')['feature_value'].agg(
+        mean='mean',
+        median='median'
+    ).reset_index()
+
+    # Add confidence interval to the dataframe
+    ci = df.groupby('date')['feature_value'].apply(confidence_interval).reset_index(name='ci')
+    aggregated['ci_lower'] = ci['ci'].apply(lambda x: x[0])
+    aggregated['ci_upper'] = ci['ci'].apply(lambda x: x[1])
+    
+    # Convert the date to string
+    aggregated["date"] = pd.to_datetime(aggregated["date"]).dt.strftime('%Y-%m-%d')
+    
+    # Convert the dataframe to CSV
+    cdir = os.path.dirname(os.path.abspath(__file__))
+    cache_dir = os.path.join(cdir, "cache")
+    file_name = f"{wr_name}_{osm_id}_{feature}.xlsx"
+    filepath = os.path.join(cache_dir, file_name)
+    
+    aggregated.to_excel(filepath, sheet_name=f"{wr_name}_{feature}", index=False)    
+    
+    return send_file(
+        filepath,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=file_name)
+
+@main.route('/download_gpkg', methods=['GET'])
+@login_required
+def download_gpkg():    
+    # Get data from the frontend
+    osm_id = request.args.get('osm_id')
+    feature = request.args.get('feature')
+    date = request.args.get('date')
+    model_id = request.args.get('model_id')
+    wr_name = request.args.get('wr_name')
+    
+    print(f"Downloading the data for the reservoir: {wr_name} ({osm_id}), feature: {feature}, date: {date}, model_id: {model_id}")
+    
+    # Get data from DB
+    query = text(f"SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}' and model_id = '{model_id}'")  # Get the time series data for the particular reservoir
+    gdf_data = gpd.read_postgis(query, db.engine, geom_col='geometry')
+
+    # Create GPKG file
+    cdir = os.path.dirname(os.path.abspath(__file__))
+    cache_dir = os.path.join(cdir, "cache")
+    file_name = f"{wr_name}_{osm_id}_{feature}_{date}.gpkg"
+    filepath = os.path.join(cache_dir, file_name)
+    gdf_data.to_file(filepath, driver='GPKG', layer='data')
+    
+    return send_file(
+        filepath,
+        mimetype="application/geopackage+sqlite3",
+        as_attachment=True,
+        download_name=file_name)
 
 @main.route('/delete_ask')
 def delete_ask():
@@ -936,7 +1083,7 @@ def confidence_interval(data, confidence=0.95):
     h = se * t.ppf((1 + confidence) / 2., n-1)
     return mean - h, mean + h
 
-def convert_data_to_nparray(gdf_data, gdf_mask, fvalue, pixel_size=10):    
+def convert_data_to_nparray(gdf_data, gdf_mask, fvalue, mask_val=np.nan, pixel_size=10):    
     """Rasterize the original data and mask of the WR"""
     
     # Transform CRS
@@ -966,7 +1113,7 @@ def convert_data_to_nparray(gdf_data, gdf_mask, fvalue, pixel_size=10):
     )
     
     # Rasterize mask
-    shapes_mask = ((geom, np.nan) for geom in gdf_mask_utm.geometry)
+    shapes_mask = ((geom, mask_val) for geom in gdf_mask_utm.geometry)
     
     np_mask = rasterize(
         shapes=shapes_mask,
@@ -975,8 +1122,58 @@ def convert_data_to_nparray(gdf_data, gdf_mask, fvalue, pixel_size=10):
         fill=0,  # Hodnota pro pixely bez bodů
         dtype="float32"
     )
- 
-    return np_data, np_mask
+
+    return np_data, np_mask, gdf_data_utm, bounds
+
+def interpolate_data(gdf_data, gdf_wr, fvalue, mask=True):
+    """Interpolate data using Scipy griddata linear interpolator and mask it with the reservoir polygon."""  
+    
+    # Rasterize data and mask 
+    np_data, np_mask, gdf_data_utm, bounds = convert_data_to_nparray(gdf_data, gdf_wr, fvalue, mask_val=1.0)
+    
+    x_min, y_min, x_max, y_max = bounds
+    
+    # Define meshgrid for interpolation
+    gdf_data_utm["x"] = gdf_data_utm.geometry.x
+    gdf_data_utm["y"] = gdf_data_utm.geometry.y
+    
+    grid_x, grid_y = np.meshgrid(np.linspace(x_min, x_max, np.shape(np_mask)[1]), np.linspace(y_min, y_max, np.shape(np_mask)[0]))
+    
+    # Interpolation - Linear
+    grid_lin = griddata(gdf_data_utm[['x', 'y']], gdf_data_utm[fvalue], (grid_x, grid_y), method='linear', fill_value=np.nan)
+        
+    # Mask the data
+    if mask:    
+        np_mask_nan = np.where(np_mask == 0.0, np.nan, np_mask)
+        grid_lin = np.flipud(grid_lin) * np_mask_nan
+    else:
+        grid_lin = np.flipud(grid_lin)
+    
+    return grid_lin
+
+def sort_dataframe(df, osm_id):
+    """
+    DataFrame sorting in context for osm_id and other priorities.
+    """
+    # Pomocný sloupec pro třídění podle priorit
+    # 0: odpovídá osm_id
+    # 1: není žádné osm_id (None)
+    # 2: jiný než zadaný osm_id
+    df['sort_priority'] = df['osm_id'].apply(
+        lambda x: 0 if x == osm_id else (1 if pd.isna(x) else 2)
+    )
+
+    # Pomocný sloupec pro výběr defaultního modelu, pokud není osm_id
+    df['is_default_rank'] = ~df['is_default']  # True → 0, False → 1 (opačně, kvůli řazení)
+
+    # Seřazení dle priorit
+    df_sorted = df.sort_values(
+        by=['sort_priority', 'is_default_rank', 'test_accuracy'],
+        ascending=[True, True, False]
+    ).drop(columns=['sort_priority', 'is_default_rank'])
+
+    return df_sorted
+
 
 if __name__ == '__main__':
     # main.run(debug=True)
