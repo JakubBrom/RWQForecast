@@ -39,7 +39,7 @@ def login_post():
     # if the above check passes, then we know the user has the right credentials
     login_user(user, remember=remember)
     next_page = request.args.get('next')
-    return redirect(next_page) if next_page else redirect(url_for('main.index'))  # TODO: možná nějakou hlášku, jako ahoj nebo tak a přesměrovat na analýzy?
+    return redirect(next_page) if next_page else redirect(url_for('main.index'))
 
 @auth.route('/resend_confirmation', methods=['GET', 'POST'])
 def resend_confirmation():
