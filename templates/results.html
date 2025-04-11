@@ -15,43 +15,43 @@
     {% endwith %}
 -->
 
-
 <h1>Water quality analysis</h1>
 
 <div class="container-fluid" style="background-color: rgb(242, 242, 242);">
     <div class="row">
 
-        <div class="col-12 col-lg-3">
+        <div class="col-12 gy-2 col-lg-3">
             <h2 class="mb-3">Locality and parameters selection</h2>   
                 
                 <form id="select-results" style="margin-top: 20px;">                   
-
-                    <label for="res_name" class="form-label">Select reservoir name:</label>
-                    <select class="form-select" id="sel_wr" name="res_name">
-                        <option value="">Select reservoir from the list or from the map</option>
-                    </select>
-
-                    </br>
+                    <div class="mb-3">
+                        <label for="res_name" class="form-label">Select reservoir name:</label>
+                        <select class="form-select" id="sel_wr" name="res_name">
+                            <option value="">Select reservoir from the list or from the map</option>
+                        </select>
+                    </div>
                     
-                    <label for="wq_feature" class="form-label">Select water quality feature:</label>
-                    <select class="form-select" id="select_wq" name="wq_feature">
-                        <option value="ChlA">ChlA</option>
-                        <option value="TSS" disabled>TSS</option>
-                        <option value="PC" disabled>PC</option>
-                        <option value="APC" disabled>APC</option>
-                        <option value="PE" disabled>PE</option>
-                        <option value="ChlB" disabled>ChlB</option>
-                        <option value="CX" disabled>CX</option>
-                    </select>
+                    <div class="mb-3">
+                        <label for="wq_feature" class="form-label">Select water quality feature:</label>
+                        <select class="form-select" id="select_wq" name="wq_feature">
+                            <option value="ChlA">ChlA</option>
+                            <option value="TSS" disabled>TSS</option>
+                            <option value="PC" disabled>PC</option>
+                            <option value="APC" disabled>APC</option>
+                            <option value="PE" disabled>PE</option>
+                            <option value="ChlB" disabled>ChlB</option>
+                            <option value="CX" disabled>CX</option>
+                        </select>
+                    </div>
 
-                    <!-- TODO:
-                    <label for="model_name" class="form-label">Select prediction model:</label>
-                    <select class="form-select" id="sel_model" name="model_name">
-                        <option value=""></option>
-                        <option value="f0f13295-2068-436a-a900-a7fff15ec9a7">AI_model_test_3 (default)</option>
-                    </select>
-                    -->
-            </form>
+                    <div class="mb-3">
+                        <label for="model_name" class="form-label">Select prediction model:</label>
+                        <select class="form-select" id="sel_model" name="model_name">
+                            <option value="">Select prediction model</option>
+                        </select>
+                    </div>
+                    
+                </form>
 
             <div class="d-grid gap-2 mt-4">        
                 <button type="button" class="btn btn-primary" id="confirm-btn">Confirm selection</button>
@@ -86,8 +86,10 @@
   
         <h4 id="downl_ts_text" class="mt-4 mb-3" style="display: none;">Download data</h4>
         <div class="d-grid gap-2">
-          <button type="button" class="btn btn-sm btn-secondary" id="downl-ts" style="display: none;">Download time series</button>
-          <button type="button" class="btn btn-sm btn-secondary" id="downl-fc" style="display: none;">Download forecast</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="downl-ts" style="display: none;">Download time series</button>
+            <!--
+            <button type="button" class="btn btn-sm btn-secondary" id="downl-fc" style="display: none;">Download forecast</button>
+            -->
         </div>
       </div>
   
@@ -114,12 +116,16 @@
         <div class="col-12 col-lg-3">
             <h2>Spatial distribution analysis</h2>
             <!-- Selected water reservoir -->
-            <label for="wr_name" class="form-label">Reservoir name:</label>
-            <input type="text" class="form-control" id="wr_selected" name="wr_name" readonly><br>
+            <div class="mb-3">
+                <label for="wr_name" class="form-label">Reservoir name:</label>
+                <input type="text" class="form-control" id="wr_selected" name="wr_name" readonly>
+            </div>
 
+            <div class="mb-3">
             <!-- Calendar -->
-            <label for="datepicker" class="form-label">Select date for analysis:</label>
-            <input type="date" id="datepicker" name="datepicker" class="form-control" min="2015-06-01">
+                <label for="datepicker" class="form-label">Select date for analysis:</label>
+                <input type="date" id="datepicker" name="datepicker" class="form-control" min="2015-06-01">
+            </div>
 
             <div class="d-grid gap-2 mt-4">
                 <button type="button" class="btn btn-primary" id="interp-btn" style="margin-bottom: 15px;">Confirm selection</button>
@@ -127,7 +133,6 @@
 
 
             <h2>Statistics</h2>
-            </br>
 
             <!-- Vykreslení tabulky se statistikou pro daný termín-->
             <table class="table table-striped">
@@ -182,123 +187,20 @@
     </div>
 </div>
 
-<script>
-    //Funkcionalita mapy
-    var myMap = L.map('map_result').setView([48.8, 14.8], 5);
-    window.myMap = myMap;
-
-    // Základní vrstva OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(myMap);
-
-    let selectedLayer = null;
-
-    var waterBodiesLayer = L.geoJSON(null, {
-        style: function () {
-            return { color: "blue", weight: 2};
-        },
-        onEachFeature: function (feature, layer) {
-            layer.bindPopup("Name: " + (feature.properties.name || "Noname") + "<br>" +
-                            "OSM_ID: " + (feature.properties.osm_id || null) + "<br>" +
-                            "Area: " + (feature.properties.area || null) + " ha"
-            );
-
-            layer.on('click', function () {
-                if (selectedLayer) {
-                    waterBodiesLayer.resetStyle(selectedLayer);
-                }
-                selectedLayer = this;
-                this.setStyle({ color: "red" });
-
-                document.getElementById("sel_wr").value = feature.properties.osm_id;
-            });
-        }
-    }).addTo(myMap);
- 
-    // Dynamické načítání GeoJSON dat
-    function loadWaterBodies() {
-            waterBodiesLayer.clearLayers();
-            var currentZoom = myMap.getZoom();
-            console.log("Aktuální zoom úroveň:", currentZoom);
-            var geojsonData = null;
-
-            // Získání aktuálního rozsahu mapy
-            const bounds = myMap.getBounds();
-            const bbox = {
-                south: bounds.getSouth(),
-                west: bounds.getWest(),
-                north: bounds.getNorth(),
-                east: bounds.getEast()
-            };
-
-            fetch('/add_wr_to_map', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bbox)
-            })
-            .then(response => response.json())
-            .then(data => {
-                geoJsonData = data;
-                L.geoJSON(data, {}).addTo(myMap);
-            console.log("Data načtena:", data.elements);
-            waterBodiesLayer.addData(data);    
-        });
-    }
-    myMap.on("moveend", loadWaterBodies);
-    loadWaterBodies();
+<script src="static/js/load_wr.js">
+    //Loading the map and the reservoir data for users
 </script>
 
-<script>
-    // Načtení dat pro výběr nádrže
-    $(document).ready(function(){
-        $.ajax({
-            url: '/set_data_to_selectBox',
-            type: 'GET',
-            success: function(response) {
-                var data = JSON.parse(response);
-                $.each(data, function(index, value) {
-                    $('#sel_wr').append('<option value="' + value.osm_id + '">' + value.name + '</option>');
-                });
-            },
-            error: function(error) {
-                $('#error').text('Došlo k chybě při načítání dat.');
-            }
-        });
-    });
+<script src="static/js/select_wr_to_map.js">
+    // Display the selected reservoir on the map    
 </script>
 
-<script>
-    // Zazoomování mapy na vybraný objekt
-    function zoomMapToPolygon(dataUrl){
-        // dataUrl: URL pro získání dat z backendu
-        // divId: ID divu, do kterého se graf vykreslí
-        $(document).ready(function() {
-            $('#sel_wr').change(function() {
-                const osm_id = $('#sel_wr').val();
+<script src="static/js/select_models.js">
+    // Načtení dat pro výběr modelu a vložení do selectboxu
+</script>
 
-                $.ajax({
-                    url: dataUrl,  // Endpoint na backendu
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ osm_id: osm_id }),
-                    success: function(data) {
-                        console.log('Data received:', data);
-
-                        var southWest = L.latLng(data.southWest.lat, data.southWest.lng);
-                        var northEast = L.latLng(data.northEast.lat, data.northEast.lng);
-                        var bounds = L.latLngBounds(southWest, northEast);
-                        myMap.fitBounds(bounds);
-                    },
-                    error: function(err) {
-                        console.error('Error zooming map', err);
-                    },
-                });
-            });
-        });
-    };
-
-    zoomMapToPolygon('/get_bounds')
+<script src="static/js/zoom_map.js">
+    // Zoom map to the selected reservoir    
 </script>
 
 <script src="static/js/ts-plots.js">
@@ -306,68 +208,23 @@
 </script>
 
 <script src="static/js/heatmap.js">
-    // Načtení dat pro předpověď a vytvoření grafu průměru, mediánu a intervalů spolehlivosti    
+    // Show an interpolated contourplot for the reservoir    
 </script>
 
-<script>
+<script src="static/js/add_data_to_fields.js">
     // Vložení názvu nádrže do inputu #wr_selected ze select boxu #select_wq po kliknutí na tlačítko #confirm-btn
-    $(document).ready(function() {
-        $('#confirm-btn').click(function() {
-            const wr_name = $('#sel_wr option:selected').text();
-            $('#wr_selected').val(wr_name);
-
-            $('#downl_ts_text').show();
-            $('#downl-ts').show();
-            $('#downl-fc').show();
-        });
-    });
 </script>
 
-<script>
+<script src="static/js/results_websocket_connect.js">
     // Připojení k WebSocket serveru
-    var socket = io.connect('http://' + document.domain + ':' + location.port);
-
-    // Naslouchání zprávám
-    socket.on("flash_message", function(data) {
-        console.log("Zpráva: ", data);
-
-        // Vytvoření flash zprávy
-        const flashMessage = $(`
-            <div class="alert alert-${data.category} alert-dismissible fade show" role="alert">
-                ${data.message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        `);
-
-        // Přidání zprávy do divu
-        $("#flash-messages").append(flashMessage);
-
-        // Automatické skrytí zprávy po 5 sekundách
-        setTimeout(function() {
-            flashMessage.fadeOut(500, function() { $(this).remove(); });
-        }, 10000);
-    });
-
-    socket.on("redirect", function(data) {
-        sessionStorage.setItem("flashMessage", data.message);
-        window.location.href = data.url;  // Přesměrování na danou URL
-    });
-
-    // Odeslání požadavku na spuštění analýzy
-    $(document).ready(function() {
-        $("#update-btn").click(function() {
-            const osm_id = $('#sel_wr').val();
-            const feature = $('#select_wq').val();
-            const wr_name = $('#sel_wr option:selected').text();
-
-            socket.emit("start_analysis", {osm_id: osm_id, feature: feature, wr_name: wr_name});
-        });
-    });
 </script>
 
 <script src="static/js/fill-tab.js">
     // Načtení dat pro interpolaci a vytvoření grafu s interpolovanými hodnotami    
 </script>
 
+<script src="static/js/download_file.js">
+    // Stažení GeoJson dat pro danou nádrž a datum
+</script>
 
 {% endblock%}
