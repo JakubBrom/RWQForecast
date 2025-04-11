@@ -174,7 +174,7 @@ function plotSpatialWR(dataUrl, divId){
     });
 }
 
-plotSpatialWR('/interpolate_data', 'interp_chart');
+plotSpatialWR('/contourplot_data', 'interp_chart');
 
 function displayNoDataMessage(divId) {
     var data = [];

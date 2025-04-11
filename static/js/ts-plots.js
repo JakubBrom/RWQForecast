@@ -7,6 +7,7 @@ function plotTimeSeries(dataUrl, divId){
         $('#confirm-btn').click(function() {
             const osm_id = $('#sel_wr').val();
             const feature = $('#select_wq').val();
+            const model_id = $('#sel_model').val();
 
             $('#ts_chart').show();
             $('#forecast_chart').show();
@@ -15,7 +16,7 @@ function plotTimeSeries(dataUrl, divId){
                 url: dataUrl,  // Endpoint na backendu
                 type: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ osm_id: osm_id, feature: feature }),
+                data: JSON.stringify({ osm_id: osm_id, feature: feature, model_id: model_id }),
                 success: function(response) {
                     console.log('Data received:', response.data);
                     const data = response.data;
@@ -82,8 +83,16 @@ function plotTimeSeries(dataUrl, divId){
 
                     // Vykresli graf
                     Plotly.newPlot(divId, [traceMean, traceMedian, traceCILower, traceCIUpper], {
-                        xaxis: { title: 'Date' },
-                        yaxis: { title: 'Concentration of ' + feature + ' (&mu;g&#x2219;l<sup>-1</sup>)' },
+                        xaxis: {
+                            title: {
+                                text: 'Date'
+                            }
+                        },
+                        yaxis: { 
+                            title: {
+                                text: 'Concentration of ' + feature + ' (&mu;g&#x2219;l<sup>-1</sup>)'
+                            }
+                        },
                         legend: {
                             orientation: 'h',
                             x: 1,
