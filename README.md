@@ -133,13 +133,13 @@ For parallel computing, multiple OpenEO credentials can be used, but a single ke
 A table displays information about the reservoir and the dataset after confirmation.
 The time series line chart presents the average, median, and confidence intervals.
 The forecast chart shows a two-week prediction as an interactive line graph $${\color{red}(upcoming)}$$.
-Time series and forecast data can be downloaded as a value table $${\color{red}(upcoming)}$$.
+Time series and forecast data can be downloaded as a value table $${\color{red}(upcoming fo forecast)}$$.
             
 The user can display the spatial distribution of values for the selected reservoir. After selection of the particular date of the data acquisition and confirmation, a table with statistics for the reservoir and selected date is generated $${\color{red}(upcoming)}$$ and an interactive graph visualizing the spatial distribution of values across the reservoir is displayed.
 
-Data in the form of a point vector layer can be downloaded by clicking the "Download data" button $${\color{red}(upcoming)}$$.
+Data in the form of a point vector layer can be downloaded by clicking the "Download data" button.
 
-Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method $${\color{red}(upcoming)}$$.
+Statistical indicators are computed from interpolated data using the linear interpolation method.
 
 For adding a new water reservoir, user can click the "Add new reservoir" button which goes to the "Select reservoir" window. The page provides selection of the reservoir from the map for data processing. After confirming the selection the system requests confirmation again and then initiates the analysis.
 
@@ -185,23 +185,24 @@ Time series are represented by interactive line charts displaying the mean value
 
 Missing data are handled using the connectgaps method, and smoothing is applied for improved clarity.
 
-Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method.
+Statistical indicators are computed from interpolated data using the linear interpolation method.
     
     
-### 8. User data export $${\color{red}(upcoming)}$$
+### 8. User data export
 
 The application allows users to download time series data for a selected reservoir as a data table, as well as spatial data for individual dates in the form of a point vector layer in the WGS84 coordinate system.
 
 
-## System limitations
+# System limitations
 
 The system has following limitations:
     
 - Processing is available for reservoirs larger than 1 hectare.
-- Processing is limited to a maximum of 5,000 points per reservoir.
+- Processing is limited to a maximum of 10,000 points per reservoir.
 - Processing is limited to a maximum of 16 days for forecasting.
 - Processing is limited to a maximum of 10 years for historical data. The data for Sentinel 2 are available from June 2015.
 - Water quality prediction accuracy is limited by the quality of Satellite data - The L2A Sen2Cor product is used for the data analysis.
 - The number of analyses is limitted by the OpenEO data availability limits for the user.
 - The time for analysis can be very long because the OpenEO limis.
+- The RWQForecast system is not suitable for large reservoirs.
     
