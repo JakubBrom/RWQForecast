@@ -99,6 +99,27 @@ def oeo_credentials_howto():
 def oeo_form():
     return render_template("credentials.html")
 
+@main.route("/gallery")
+def gallery():
+    abs_path = os.path.dirname(os.path.abspath(__file__))
+    
+    # Maps
+    maps_path = os.path.join(abs_path, 'static', 'images', 'gallery', 'maps')
+    maps = os.listdir(maps_path)
+    
+    # Graphs
+    graphs_path = os.path.join(abs_path, 'static', 'images', 'gallery', 'graphs')
+    graphs = os.listdir(graphs_path)
+    
+    # Tables
+    tables_path = os.path.join(abs_path, 'static', 'images', 'gallery', 'tables')
+    tables = os.listdir(tables_path)
+    
+    # Photos
+    photos_path = os.path.join(abs_path, 'static', 'images', 'gallery', 'photos')
+    photos = os.listdir(photos_path)
+    
+    return render_template('gallery.html', maps=maps, graphs=graphs, tables=tables, photos=photos)
 
 @main.route("/get_oeo_credentials", methods=["POST"])
 @login_required
@@ -796,7 +817,6 @@ def data_info():                                # TODO: dodělat! --> přidat od
     # Get the prediction model data
     query_model = text(f"SELECT model_name, test_accuracy, is_default, osm_id FROM {db_models} WHERE model_id = '{model_id}'")
     df_model = pd.read_sql_query(query_model, db.engine)
-    print(df_model)
     
     model_name = df_model.iloc[0, 0]
     test_accuracy = df_model.iloc[0, 1]
