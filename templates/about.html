@@ -3,188 +3,219 @@
 
 <div class="container">
 
-    <h1>RWQForecast</h1>
+    <div class="row">
 
-    <p><b>RWQForecast (Remote Water Quality Forecast)</b> is a web application designed for <b>short-term forecasts</b> of water quality changes in reservoirs over a timeframe of days, for analyzing <b>temporal changes</b> in water quality within reservoirs, and for assessing the <b>spatial distribution</b> of water quality within a reservoir for a given date. The analysis is based on combination of the <b>Sentinel 2</b> satellite data and their analysis using <b>AI Machine Learning and Deep Learning</b> methods.</p>
-    The <b>RWQForecast system</b> consists of two parts:</p>
-
-    <p>RWQForecast offers the following options for processing and evaluating satellite data:</p>
-
-    <ul>
-        <li>Estimation of <b>water quality</b> in reservoirs</li>
-        <li>Evaluation of <b>temporal changes</b></li>
-        <li><b>Short-term forecast</b> of water quality changes</li>
-        <li>Assessment of <b>spatial distribution</b> of water quality in reservoirs</li>
-    </ul>
-
-    <p>RWQForecast allows evaluation of the following parameters:</p>
-    <ul>
-        <li><strong>ChlA</strong> – Chlorophyll-a concentration (µg.l⁻¹)</li>
-    </ul>
-    
-    <p>Upcoming models will include:</p>
-    <ul>
-        <li><strong>ChlB</strong> – Chlorophyll-b concentration (µg.l⁻¹)</li>
-        <li><strong>TSS</strong> – Total suspended solids (mg.l⁻¹)</li>
-        <li><strong>PC</strong> – Phycocyanin concentration (µg.l⁻¹)</li>
-        <li><strong>APC</strong> – Allophycocyanin concentration (µg.l⁻¹)</li>
-        <li><strong>PE</strong> – Phycoerythrin concentration (µg.l⁻¹)</li>
-        <li><strong>CX</strong> – Carotenoids and xanthophylls concentration (µg.l⁻¹)</li>
-        <li><strong>SD</strong> – Secchi disk transparency (m)</li>
-    </ul>
-
-    <p>The system's functionality is designed to minimize user input requirements. The web application handles the user interface, where users simply select a reservoir from a map or list and specify the desired water quality parameters.</p>
-
-    <p>The source code is available at: <a href=https://github.com/JakubBrom/RWQForecast target="_blank" rel="noopener noreferrer">https://github.com/JakubBrom/RWQForecast</a>. The system is written in Python, the web service uses the Flask microframework, and the database is PostgreSQL/PostGIS.</p>
-
-    
-    <h2>Status</h2>
-
-    <p><b>Testing version.</b></p>
-    
-    <p>The testing web page is available at <a href=http://160.217.162.143:8080/>http://160.217.162.143:8080/<a> (can be temporaly unavailable because the development). The later version will be placed at <a href=https://rwqforecast.com>https://rwqforecast.com<a> (<font color="red">upcoming</font>).
-    
-    
-    <h2>Authors and Collaborators</h2>
-    
-    <p>Jakub Brom - libretto, drama, roles, actors, stage, light design, prompter, masks, coffeelings and other issues</p>
-    
-    <p>Václav Nedbal - data acquisition, water field sampling, spectral measurement, laboratory preparation of samples</p> 
-    
-    <p>Blanka Tesařová - laboratory analyses</p>
-    
-    <p>Jan Kuntzman - field work, laboratory preparation of samples</p>
-    
-
-    <h2>License</h2>
-    
-    <p>GNU GPL v. 3 or later</p>
-    
-    <p>© 2024 Jakub Brom, University of South Bohemia in České Budějovice, Faculty of Agriculture and Technology</p>
-    
-    <p>© 2024 AIHABs Consorcium</p>
-    
-    <p>E-mail: jbrom@fzt.jcu.cz</p>
+        <!-- Sidebar (Scrollspy menu) -->
+        <div class="col-lg-3 d-none d-lg-block">
+            <div class="position-sticky" style="top: 70px;">
+                <h3 class="mb-4">Table of content</h3>
+                <div id="gallery-list" class="list-group">
+                    <a class="list-group-item list-group-item-action" href="#intro">Introduction</a>
+                    <a class="list-group-item list-group-item-action" href="#status">Status</a>
+                    <a class="list-group-item list-group-item-action" href="#authors">Authors and Collaborators</a>
+                    <a class="list-group-item list-group-item-action" href="#license">License</a>
+                    <a class="list-group-item list-group-item-action" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapse-item-1" href="#docs">Documentation</a>
+                        <div class="collapse ps-4" id="docs">
+                            <a class="list-group-item list-group-item-action" href="#ui">User Interface</a>
+                            <a class="list-group-item list-group-item-action" href="#workfl">Computation workflow</a>                            
+                        </div>
+                    <a class="list-group-item list-group-item-action" href="#syslimit">System limitations</a>
 
 
-    <h2>Documentation</h2>
+                </div>
+            </div>
+        </div>
 
-    <p>The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. The computational unit is implemented in the RWQForecast services.
-    
-    <h3>User interface</h3>
-    
-    <p>The RWQForecast system is designed to be user-friendly and intuitive. Some parts are still under development. The following tutorial provides a step-by-step guide to using the system:</p>
-    
-    <ol>
-        <li>User account</li>
+       <!-- Main content -->
+        <div class="col-12 col-lg-9">
+            <div data-bs-spy="scroll" data-bs-target="#gallery-list" data-bs-smooth-scroll="true"
+                class="scrollspy-example" tabindex="0" style="position: relative; height: 100vh; overflow-y: auto;">
 
-            <ul>        
-                <li>The user registers using the "Sign Up" tab.</li>
-                <li>After successful registration, the user receives an email with a confirmation link.</li>
-                <li>After confirming the email, the user can log in to the system.</li>
-            </ul>
+                <h1 id="intro">RWQForecast</h1>
+
+                <p><b>RWQForecast (Remote Water Quality Forecast)</b> is a web application designed for <b>short-term forecasts</b> of water quality changes in reservoirs over a timeframe of days, for analyzing <b>temporal changes</b> in water quality within reservoirs, and for assessing the <b>spatial distribution</b> of water quality within a reservoir for a given date. The analysis is based on combination of the <b>Sentinel 2</b> satellite data and their analysis using <b>AI Machine Learning and Deep Learning</b> methods.</p>
+                The <b>RWQForecast system</b> consists of two parts:</p>
+
+                <p>RWQForecast offers the following options for processing and evaluating satellite data:</p>
+
+                <ul>
+                    <li>Estimation of <b>water quality</b> in reservoirs</li>
+                    <li>Evaluation of <b>temporal changes</b></li>
+                    <li><b>Short-term forecast</b> of water quality changes</li>
+                    <li>Assessment of <b>spatial distribution</b> of water quality in reservoirs</li>
+                </ul>
+
+                <p>RWQForecast allows evaluation of the following parameters:</p>
+                <ul>
+                    <li><strong>ChlA</strong> – Chlorophyll-a concentration (µg.l⁻¹)</li>
+                </ul>
                 
-        <li>Logging in</li>
+                <p>Upcoming models will include:</p>
+                <ul>
+                    <li><strong>ChlB</strong> – Chlorophyll-b concentration (µg.l⁻¹)</li>
+                    <li><strong>TSS</strong> – Total suspended solids (mg.l⁻¹)</li>
+                    <li><strong>PC</strong> – Phycocyanin concentration (µg.l⁻¹)</li>
+                    <li><strong>APC</strong> – Allophycocyanin concentration (µg.l⁻¹)</li>
+                    <li><strong>PE</strong> – Phycoerythrin concentration (µg.l⁻¹)</li>
+                    <li><strong>CX</strong> – Carotenoids and xanthophylls concentration (µg.l⁻¹)</li>
+                    <li><strong>SD</strong> – Secchi disk transparency (m)</li>
+                </ul>
+
+                <p>The system's functionality is designed to minimize user input requirements. The web application handles the user interface, where users simply select a reservoir from a map or list and specify the desired water quality parameters.</p>
+
+                <p>The source code is available at: <a href=https://github.com/JakubBrom/RWQForecast target="_blank" rel="noopener noreferrer">https://github.com/JakubBrom/RWQForecast</a>. The system is written in Python, the web service uses the Flask microframework, and the database is PostgreSQL/PostGIS.</p>
+
+                
+                <h2 id="status">Status</h2>
+
+                    <p><b>Testing version.</b></p>
                     
-            <ul>        
-                <li>The user logs in to the system using the "Login" tab.</li>
-                <li>After successful login, the user is redirected to the "Home" tab.</li>
-            </ul>
+                    <p>The testing web page is available at <a href=http://160.217.162.143:8080/>http://160.217.162.143:8080/<a> (can be temporaly unavailable because the development). The later version will be placed at <a href=https://rwqforecast.com>https://rwqforecast.com<a> (<font color="red">upcoming</font>).
                 
-        <li>Analysis</li>
+                
+                <h2 id="authors">Authors and Collaborators</h2>
+                
+                    <p>Jakub Brom - libretto, drama, roles, actors, stage, light design, prompter, masks, coffeelings and other issues</p>
                     
-            <p>The user selects the desired reservoir, evaluation parameter, and prediction model either through the reservoir selection form or from the map window.
+                    <p>Václav Nedbal - data acquisition, water field sampling, spectral measurement, laboratory preparation of samples</p> 
+                    
+                    <p>Blanka Tesařová - laboratory analyses</p>
+                    
+                    <p>Jan Kuntzman - field work, laboratory preparation of samples</p>
+                
 
-            <p>After confirming the selection, the time series for the chosen parameter and reservoir is displayed with all available data. Missing data (part of time series) can be filled using the "Update dataset" button, which initiates the process of data retrieval and feature computation.</p>
+                <h2 id="license">License</h2>
                 
-            <p>To perform analyses, the user must set up OpenEO/CDSE access credentials. The system will request these credentials during or before the first analysis. The credentials can be obtained through a Copernicus DataSpace Ecosystem account. If the user does not have an OpenEO account, they must register first.</p>
+                    <p>GNU GPL v. 3 or later</p>
+                    
+                    <p>© 2024 Jakub Brom, University of South Bohemia in České Budějovice, Faculty of Agriculture and Technology</p>
+                    
+                    <p>© 2024 AIHABs Consorcium</p>
+                    
+                    <p>E-mail: jbrom@fzt.jcu.cz</p>
+
+
+                <h2 id="docs">Documentation</h2>
+
+                    <p>The RWQForecast service has two parts. The first is a user interface (frontend) and the second is computational which provide data downloading and processing. The computational unit provides the data/results to the user with using the database, which is connected with the user interface. The computational unit is implemented in the RWQForecast services.
                 
-            <p>For parallel computing, multiple OpenEO credentials can be used, but a single key cannot be utilized for multiple analyses simultaneously.</p>
-            
-            <p>A table displays information about the reservoir and the dataset after confirmation.
-            The time series line chart presents the average, median, and confidence intervals.
-            The forecast chart shows a two-week prediction as an interactive line graph (<font color="red">upcoming</font>).
-            Time series and forecast data can be downloaded as a value table (<font color="red">upcoming</font>).</p>
+                <h3 id="ui">User interface</h3>
+                
+                <p>The RWQForecast system is designed to be user-friendly and intuitive. Some parts are still under development. The following tutorial provides a step-by-step guide to using the system:</p>
+                
+                <ol>
+                    <li>User account</li>
+
+                        <ul>        
+                            <li>The user registers using the "Sign Up" tab.</li>
+                            <li>After successful registration, the user receives an email with a confirmation link.</li>
+                            <li>After confirming the email, the user can log in to the system.</li>
+                        </ul>
+                            
+                    <li>Logging in</li>
+                                
+                        <ul>        
+                            <li>The user logs in to the system using the "Login" tab.</li>
+                            <li>After successful login, the user is redirected to the "Home" tab.</li>
+                        </ul>
+                            
+                    <li>Analysis</li>
+                                
+                        <p>The user selects the desired reservoir, evaluation parameter, and prediction model either through the reservoir selection form or from the map window.
+
+                        <p>After confirming the selection, the time series for the chosen parameter and reservoir is displayed with all available data. Missing data (part of time series) can be filled using the "Update dataset" button, which initiates the process of data retrieval and feature computation.</p>
+                            
+                        <p>To perform analyses, the user must set up OpenEO/CDSE access credentials. The system will request these credentials during or before the first analysis. The credentials can be obtained through a Copernicus DataSpace Ecosystem account. If the user does not have an OpenEO account, they must register first.</p>
+                            
+                        <p>For parallel computing, multiple OpenEO credentials can be used, but a single key cannot be utilized for multiple analyses simultaneously.</p>
                         
-            <p>The user can display the spatial distribution of values for the selected reservoir. After selection of the particular date of the data acquisition and confirmation, a table with statistics for the reservoir and selected date is generated (<font color="red">upcoming</font>) and an interactive graph visualizing the spatial distribution of values across the reservoir is displayed.<p>
+                        <p>A table displays information about the reservoir and the dataset after confirmation.
+                        The time series line chart presents the average, median, and confidence intervals.
+                        The forecast chart shows a two-week prediction as an interactive line graph (<font color="red">upcoming</font>).
+                        Time series and forecast data can be downloaded as a value table (<font color="red">upcoming</font>).</p>
+                                    
+                        <p>The user can display the spatial distribution of values for the selected reservoir. After selection of the particular date of the data acquisition and confirmation, a table with statistics for the reservoir and selected date is generated (<font color="red">upcoming</font>) and an interactive graph visualizing the spatial distribution of values across the reservoir is displayed.<p>
 
-            <p>Data in the form of a point vector layer can be downloaded by clicking the "Download data" button (<font color="red">upcoming</font>).</p>
+                        <p>Data in the form of a point vector layer can be downloaded by clicking the "Download data" button (<font color="red">upcoming</font>).</p>
 
-            <p>Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method (<font color="red">upcoming</font>).</p>
-            
-            <p>For adding a new water reservoir, user can click the "Add new reservoir" button which goes to the "Select reservoir" window. The page provides selection of the reservoir from the map for data processing. After confirming the selection the system requests confirmation again and then initiates the analysis.</p>
-            
-            <p>Once the analysis starts, the system notifies the user in a new application window.</p>
-            
-            <p>After the analysis is completed, the user receives an email notification with a link to the results.</p>
-    </ol>
-    
-
-    <h3>Computation workflow</h3>
-    
-    <p>The computation unit (RWQForecas-engine) is a software which provides all the processing steps of the data including satellite data downloading, feature calculation/prediction and forecast of the water quality parameters. The RWQForecast engine is available at https://github.com/JakubBrom/RWQForecast-engine.</p>
-
-    <ol>    
-        <li>Downloading the vector layer for the selected reservoir</li>
-            
-            <p>The user selects a reservoir in the application, which is retrieved from the OpenStreetMap database and stored in the system's database. Users can select any reservoir worldwide, with processing available for reservoirs larger than 1 hectare.</p>
+                        <p>Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method (<font color="red">upcoming</font>).</p>
+                        
+                        <p>For adding a new water reservoir, user can click the "Add new reservoir" button which goes to the "Select reservoir" window. The page provides selection of the reservoir from the map for data processing. After confirming the selection the system requests confirmation again and then initiates the analysis.</p>
+                        
+                        <p>Once the analysis starts, the system notifies the user in a new application window.</p>
+                        
+                        <p>After the analysis is completed, the user receives an email notification with a link to the results.</p>
+                </ol>
                 
-        <li>Defining points within the reservoir</li>
-            
-            <p>The system generates spatial points inside the selected reservoir using OpenStreetMap as a reference. Each point serves as a spatial reference for processing time series data, allowing interpolation to reconstruct the spatial distribution of values for a given time interval. The approach considers the geometric complexity of reservoirs, ensuring that areas such as bays are included in the analysis. The point density is set to 100 points per km², with adjustments for small and large reservoirs. The system randomly selects and processes a maximum of 5,000 points per reservoir to optimise computational efficiency.</p>
+
+                <h3 id="workfl">Computation workflow</h3>
                 
-        <li>Data retrieval</li>
-            
-            <p>The system automatically downloads data for the defined points from Sentinel-2 satellite imagery available in the ESA OpenEO archive. Meteorological data for each location is retrieved from OpenMeteo.</p>
+                <p>The computation unit (RWQForecas-engine) is a software which provides all the processing steps of the data including satellite data downloading, feature calculation/prediction and forecast of the water quality parameters. The RWQForecast engine is available at https://github.com/JakubBrom/RWQForecast-engine.</p>
+
+                <ol>    
+                    <li>Downloading the vector layer for the selected reservoir</li>
+                        
+                        <p>The user selects a reservoir in the application, which is retrieved from the OpenStreetMap database and stored in the system's database. Users can select any reservoir worldwide, with processing available for reservoirs larger than 1 hectare.</p>
+                            
+                    <li>Defining points within the reservoir</li>
+                        
+                        <p>The system generates spatial points inside the selected reservoir using OpenStreetMap as a reference. Each point serves as a spatial reference for processing time series data, allowing interpolation to reconstruct the spatial distribution of values for a given time interval. The approach considers the geometric complexity of reservoirs, ensuring that areas such as bays are included in the analysis. The point density is set to 100 points per km², with adjustments for small and large reservoirs. The system randomly selects and processes a maximum of 5,000 points per reservoir to optimise computational efficiency.</p>
+                            
+                    <li>Data retrieval</li>
+                        
+                        <p>The system automatically downloads data for the defined points from Sentinel-2 satellite imagery available in the ESA OpenEO archive. Meteorological data for each location is retrieved from OpenMeteo.</p>
+                            
+                    <li>Calculation of water quality parameters</li>
+                        
+                        <p>In this step, a pre-trained AI estimation model is used to compute the requested water quality parameters based on the corresponding data stored in the database.</p>
+                            
+                    <li>Imputation of missing values</li>
+                        
+                        <p>Satellite image data availability is irregular due to weather conditions, especially cloud cover, which varies geographically. The system handles missing data using the Support Vector Machine (SVM) method, which reconstructs a complete daily time series by utilizing the characteristics of each time series along with meteorological data as a coregressor.</p>
+                            
+                    <li>Forecasting</li>
+                        
+                        <p>The model estimates the probable evolution of time series using historical data and meteorological information as coregressors. The Long Short-Term Memory (LSTM) method is used for prediction, generating forecasts for all selected points within the reservoir. <font color="red">upcoming</font>)</p>
+                            
+                    <li>Visualization of results and statistical analysis</li>
+                        
+                        <p>Spatial distribution of data for a given date is visualized using contour plots (ContourPlot).</p>
+                        
+                        <p>The web application provides visualization of results using the Plotly library.</p> 
+
+                        <p>Time series are represented by interactive line charts displaying the mean value, median, and confidence intervals.</p>
+
+                        <p>Missing data are handled using the connectgaps method, and smoothing is applied for improved clarity.</p>
+
+                        <p>Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method.</p>
+                        
+                    <li>User data export (<font color="red">upcoming</font>)</li>
+                    
+                        <p>The application allows users to download time series data for a selected reservoir as a data table, as well as spatial data for individual dates in the form of a point vector layer in the WGS84 coordinate system.</p>  
+                        
+                </ol>
                 
-        <li>Calculation of water quality parameters</li>
-            
-            <p>In this step, a pre-trained AI estimation model is used to compute the requested water quality parameters based on the corresponding data stored in the database.</p>
+                <h2 id="syslimit">System limitations</h2>
                 
-        <li>Imputation of missing values</li>
-            
-            <p>Satellite image data availability is irregular due to weather conditions, especially cloud cover, which varies geographically. The system handles missing data using the Support Vector Machine (SVM) method, which reconstructs a complete daily time series by utilizing the characteristics of each time series along with meteorological data as a coregressor.</p>
+                <p>The system has following limitations:</p>
+
+                <ul>
+                    
+                    <li>Processing is available for reservoirs larger than 1 hectare.</li>
+                    <li>Processing is limited to a maximum of 10,000 points per reservoir.</li>
+                    <li>Processing is limited to a maximum of 16 days for forecasting.</li>
+                    <li>Processing is limited to a maximum of 10 years for historical data. The data for Sentinel 2 are available from June 2015.</li>
+                    <li>Water quality prediction accuracy is limited by the quality of Satellite data - The L2A Sen2Cor product is used for the data analysis.</li>
+                    <li>The number of analyses is limitted by the OpenEO data availability limits for the user.</li>
+                    <li>The time for analysis can be very long because the OpenEO limis.</li>
+                    <li>The RWQForecast system is not suitable for large reservoirs.</li>
+
+                </ul>
                 
-        <li>Forecasting</li>
-            
-            <p>The model estimates the probable evolution of time series using historical data and meteorological information as coregressors. The Long Short-Term Memory (LSTM) method is used for prediction, generating forecasts for all selected points within the reservoir. <font color="red">upcoming</font>)</p>
-                
-        <li>Visualization of results and statistical analysis</li>
-            
-            <p>Spatial distribution of data for a given date is visualized using contour plots (ContourPlot).</p>
-            
-            <p>The web application provides visualization of results using the Plotly library.</p> 
 
-            <p>Time series are represented by interactive line charts displaying the mean value, median, and confidence intervals.</p>
-
-            <p>Missing data are handled using the connectgaps method, and smoothing is applied for improved clarity.</p>
-
-            <p>Statistical indicators are computed from interpolated data using the inverse distance weighting (IDW) interpolation method.</p>
-            
-        <li>User data export (<font color="red">upcoming</font>)</li>
-        
-            <p>The application allows users to download time series data for a selected reservoir as a data table, as well as spatial data for individual dates in the form of a point vector layer in the WGS84 coordinate system.</p>  
-            
-    </ol>
-    
-    <h3>System limitations</h3>
-    
-    <p>The system has following limitations:</p>
-
-    <ul>
-        
-        <li>Processing is available for reservoirs larger than 1 hectare.</li>
-        <li>Processing is limited to a maximum of 10,000 points per reservoir.</li>
-        <li>Processing is limited to a maximum of 16 days for forecasting.</li>
-        <li>Processing is limited to a maximum of 10 years for historical data. The data for Sentinel 2 are available from June 2015.</li>
-        <li>Water quality prediction accuracy is limited by the quality of Satellite data - The L2A Sen2Cor product is used for the data analysis.</li>
-        <li>The number of analyses is limitted by the OpenEO data availability limits for the user.</li>
-        <li>The time for analysis can be very long because the OpenEO limis.</li>
-        <li>The RWQForecast system is not suitable for large reservoirs.</li>
-
-    </ul>
-    
-
-</div>
+            </div>
+        </div>
+    </div>
+</div>  
 
 {% endblock%}
