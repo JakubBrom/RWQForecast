@@ -262,7 +262,7 @@ def release_lock_key(key, status=True):
 
 @main.route("/start-analysis")
 @login_required
-def run_analysis(osm_id=None, wq_feature=None):
+def run_analysis(osm_id=None, wq_feature=None, model_id=None):
     
     # Get variables from html/js        # TODO: tady asi budou nějaký vstupy pro analýzy   
     user_id = current_user.get_id()
@@ -294,6 +294,7 @@ def run_analysis(osm_id=None, wq_feature=None):
                 aihabs.osm_id = osm_id
                 aihabs.feature = wq_feature
                 aihabs.db_name = current_app.config.get('DB_NAME')
+                aihabs.model_id = model_id
                 
                 aihabs.run_analyse()
                 
@@ -324,6 +325,7 @@ def select_waterbody():
     reserv_name = data.get("name")              # get name of the layer from the map
     lyr_point_position = data.get("firstVrt")   # get first vertex position of the layer
     wqf_name = data.get("wq_param")             # get wq_feature name
+    model_id = data.get("model_id")             # get model ID from the map
 
     user_id = current_user.get_id()
     print("User ID je: ", user_id)
@@ -420,7 +422,7 @@ def select_waterbody():
 
     # 6. Start the calculation process
     try:
-        run_analysis(osm_id=osm_id, wq_feature=wqf_name)      # Run the calculation process
+        run_analysis(osm_id=osm_id, wq_feature=wqf_name, model_id=model_id)      # Run the calculation process
         
     except Exception as e:
         print(f"Error in the calculation process for {osm_id}: {e}")
@@ -466,11 +468,12 @@ def update_dataset(data):
         osm_id = str(data.get('osm_id'))
         wq_feature = data.get('feature')
         reserv_name = data.get('wr_name')
+        model_id = data.get('model_id')
         
         # Send the Flash message
         socketio.emit("flash_message", {"category": "info", "message": f"Your request for water reservoir {reserv_name} ({osm_id}) data update has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
     
-        run_analysis(osm_id=osm_id, wq_feature=wq_feature)      # Run the calculation process
+        run_analysis(osm_id=osm_id, wq_feature=wq_feature, model_id=model_id)      # Run the calculation process
         
     except Exception as e:
         print(f"Error in the calculation process: {e}")

@@ -147,6 +147,7 @@ document.addEventListener('DOMContentLoaded', function() { // Důležité!
             var wq_par = document.getElementById("sel_wq").value;
             const vertices = selectedLayer.getLatLngs();
             const firstVertex = vertices[0];
+            const model_id = document.getElementById("sel_model").value; // Získání ID modelu z inputu
 
             // Uzavření dialogu IHNED po kliknutí na "Potvrdit"
             prekryti.style.display = "none";
@@ -157,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() { // Důležité!
             fetch('/select_waterbody', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ osm_id: osm_id, name: wname, wq_param: wq_par, firstVrt: firstVertex })
+                body: JSON.stringify({ osm_id: osm_id, name: wname, wq_param: wq_par, firstVrt: firstVertex, model_id: model_id })
             })
                 .then(response => response.json())
                 .then(data => {                            

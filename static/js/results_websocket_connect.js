@@ -33,7 +33,8 @@ $(document).ready(function() {
         const osm_id = $('#sel_wr').val();
         const feature = $('#select_wq').val();
         const wr_name = $('#sel_wr option:selected').text();
+        const model_id = $('#sel_model').val();
 
-        socket.emit("start_analysis", {osm_id: osm_id, feature: feature, wr_name: wr_name});
+        socket.emit("start_analysis", {osm_id: osm_id, feature: feature, wr_name: wr_name, model_id: model_id});
     });
 });

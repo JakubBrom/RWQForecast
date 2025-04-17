@@ -47,8 +47,7 @@ class AIHABs:
         self.db_table_history = "meteo_history"
         self.db_access_date = "last_access"
 
-        self.model_name = None,
-        self.default_model = False
+        self.model_id = None
 
         self.osm_id: str = "123456"
         self.feature = "ChlA"
@@ -67,7 +66,7 @@ class AIHABs:
         get_s2_points_OEO(self.provider_id, self.client_id, self.client_secret, self.osm_id, self.db_name, self.user, self.db_table_reservoirs, self.db_table_points, self.db_table_S2_points_data, self.db_access_date, oeo_backend_url=self.oeo_backend)
 
         # calculate WQ features --> new AI models
-        model_id = calculate_feature(self.feature, self.osm_id, self.db_name, self.user, self.db_table_S2_points_data, self.db_features_table, self.db_models, model_name=self.model_name, default=self.default_model)[1]
+        calculate_feature(self.feature, self.osm_id, self.db_name, self.user, self.db_table_S2_points_data, self.db_features_table, self.db_models, self.model_id)
 
         # get meteodata
         # get historical meteodata
@@ -77,7 +76,7 @@ class AIHABs:
 
         # imputation of missing values (based on SVR model)
         # if model_id is not None:
-        #     gdf_imputed, gdf_smooth = data_imputation(self.db_name, self.user, self.osm_id, self.feature, model_id, self.db_features_table, self.db_table_history, freq=self.freq, t_shift=self.t_shift)
+        #     gdf_imputed, gdf_smooth = data_imputation(self.db_name, self.user, self.osm_id, self.feature, self.model_id, self.db_features_table, self.db_table_history, freq=self.freq, t_shift=self.t_shift)
         # else:
         #     gdf_imputed = None
         #     gdf_smooth = None

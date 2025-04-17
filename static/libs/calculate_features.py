@@ -14,7 +14,7 @@ from warnings import warn
 
 def get_wq_db_last_date(osm_id, feature, db_name, user, db_table, model_id=None):
     """
-    Get last date db table for particular OSM id and water quality feature
+    Get last date from db table for particular OSM id and water quality feature
 
     :param osm_id: OSM object id
     :param feature: Water quality feature (e.g. ChlA, PC, TSS...)
@@ -191,9 +191,32 @@ def select_model(db_name, user, db_models, feature='ChlA', osm_id=None, model_na
 
     return None
 
+def get_model_from_db(model_id, db_name, user, db_models):
+    """
+    Function for getting prediction model from the database.
+
+    :param model_id: Model ID
+    :param db_name: Database name
+    :param user: Database user
+    :param db_models: Database table with AI models
+    :return: Model object
+    """
+
+    engine = create_engine(f'postgresql://{user}@/{db_name}')
+    connection = engine.connect()
+
+    # Get prediction model from DB and model ID
+    sql_query = text(f"SELECT pkl_file FROM {db_models} WHERE model_id = '{model_id}'")
+    result = execute_query(connection, sql_query)
+
+    if result:
+        result = base64.b64decode(result)
+        return dill.loads(result)
+
+    return None
+
 @measure_execution_time
-def calculate_feature(feature, osm_id, db_name, user, db_bands_table, db_features_table, db_models, model_name=None,
-                      default_model=False, **kwargs):
+def calculate_feature(feature, osm_id, db_name, user, db_bands_table, db_features_table, db_models, model_id=None, **kwargs):
     """
     Function for calculating water quality feature for a particular OSM object from the Sentinel 2 L2A bands.
 
@@ -214,8 +237,14 @@ def calculate_feature(feature, osm_id, db_name, user, db_bands_table, db_feature
     engine = create_engine('postgresql://{}@/{}'.format(user, db_name))
     connection = engine.connect()
 
-    ## Get Pickle model and its ID from the database
-    prediction_model, model_id = select_model(db_name, user, db_models, feature, osm_id, model_name, default_model)
+    if model_id is not None:
+        # Get model from DB
+        try:
+            prediction_model = get_model_from_db(model_id, db_name, user, db_models)
+        except exc.SQLAlchemyError as e:
+            warn(f"Error while getting the model from the database: {e}", stacklevel=2)
+            
+            return None
 
     print("Model ID: ", model_id)
     print("Model: ", prediction_model)
@@ -246,7 +275,7 @@ def calculate_feature(feature, osm_id, db_name, user, db_bands_table, db_feature
         connection.close()
         engine.dispose()
 
-        return None, model_id
+        return None
 
     else:
         # Define input parameters for the model
@@ -264,10 +293,6 @@ def calculate_feature(feature, osm_id, db_name, user, db_bands_table, db_feature
         B12 = np.nan_to_num(gdf_data['B12'].values * 0.0001, nan=1.0)
 
         input_data = [B01, B02, B03, B04, B05, B06, B07, B08, B8A, B09, B11, B12]
-
-        # Run the prediction model
-        if prediction_model is None:
-            return None, None
 
         # Calculate WQ feature values
         wq_values = prediction_model.predict(input_data)
@@ -288,4 +313,4 @@ def calculate_feature(feature, osm_id, db_name, user, db_bands_table, db_feature
         connection.close()
         engine.dispose()
 
-        return gdf_out, model_id
+        return gdf_out
