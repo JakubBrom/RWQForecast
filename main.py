@@ -37,9 +37,6 @@ db_user_credentials = 'user_credentials'
 db_users = 'users'
 db_models = 'models_table'
 
-# Model ID  - # TODO: doplnit do skriptů, získávat z frontendu 
-model_id = 'f0f13295-2068-436a-a900-a7fff15ec9a7'
-
 # Set the minimum area of the reservoir
 min_area = 1.0      # TODO: possibly get it from the setting file
 
@@ -633,9 +630,10 @@ def forecast_data():            # TODO: Přesměrovat na správnou tabulku
     data = request.json
     osm_id = str(data['osm_id'])
     feature = data['feature']
+    model_id = data['model_id']
 
     # Get the time series data for the particular reservoir from the DB
-    query = text(f"SELECT date, feature_value FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' ORDER BY date")  # Get the time series data for the particular reservoir
+    query = text(f"SELECT date, feature_value FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND model_id = '{model_id}' ORDER BY date")  # Get the time series data for the particular reservoir
     
     df = pd.read_sql_query(query, db.engine)
 
@@ -670,11 +668,12 @@ def contourplot_data():         # TODO: doplnit model_id
     feature = data['feature']
     date = data['date']
     fvalue = "feature_value"
+    model_id = data['model_id']
     
     print(f"Interpolating the data for the reservoir: {osm_id}, feature: {feature}, date: {date}")
     
     # Test if tere is a data for the particular reservoir and date
-    query = text(f"SELECT EXISTS (SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}')")
+    query = text(f"SELECT EXISTS (SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}' AND model_id = '{model_id}')")  # Get the time series data for the particular reservoir
     try:
         result = db.session.execute(query)
         result = result.scalar()
@@ -687,7 +686,7 @@ def contourplot_data():         # TODO: doplnit model_id
         return jsonify({"error": "No data for the reservoir and date."}), 400
         
     # Get the data for the particular reservoir and date from the DB
-    query = text(f"SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}'")  # Get the time series data for the particular reservoir
+    query = text(f"SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}' AND model_id = '{model_id}'")  # Get the time series data for the particular reservoir
     gdf_data = gpd.read_postgis(query, db.engine, geom_col='geometry')
     
     # Get reservoir polygon from the DB

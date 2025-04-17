@@ -7,6 +7,7 @@ function plotSpatialWR(dataUrl, divId){
             const osm_id = $('#sel_wr').val();
             const feature = $('#select_wq').val();
             const date = $('#datepicker').val();
+            const model_id = $('#sel_model').val(); // Přidání model_id pro stažení vektorů
 
             $('#spinner').show();
             $('#controls').show(); // Zobrazení inputu pro zmin a zmax
@@ -17,7 +18,7 @@ function plotSpatialWR(dataUrl, divId){
                 url: dataUrl,  // Endpoint na backendu
                 type: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ osm_id: osm_id, feature: feature, date: date }),
+                data: JSON.stringify({ osm_id: osm_id, feature: feature, date: date, model_id: model_id }),
                 success: function(response) {
                     console.log(response);
                     const x = response.x;  // Osa X
