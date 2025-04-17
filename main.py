@@ -866,6 +866,7 @@ def data_spatial_info():                                # TODO: dodělat!
     feature = data['feature']
     wr_name = data['wr_name']
     date_str = data['sel_date']
+    model_id = data['model_id']
     
     # Transforma date string to date object
     date_obj = datetime.strptime(date_str, '%Y-%m-%d')
