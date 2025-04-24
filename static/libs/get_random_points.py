@@ -1,15 +1,20 @@
 import os
+from re import error
+from warnings import warn
 
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from pyproj import CRS
 
-from shapely.geometry import Polygon, Point
-from scipy.spatial import Delaunay, Voronoi
+from shapely.geometry import Polygon, Point, MultiPolygon
+from scipy.spatial import Delaunay, Voronoi, KDTree
 from sqlalchemy import create_engine, text
 from multiprocessing import Pool
-from .AIHABs_wrappers import measure_execution_time
-
+try:
+    from .AIHABs_wrappers import measure_execution_time
+except ImportError:
+    from AIHABs_wrappers import measure_execution_time
 
 def points_clip(points, polygon):
     """
@@ -21,7 +26,7 @@ def points_clip(points, polygon):
     return points[points.intersects(polygon)]
 
 
-def point_mesh(polygon, distance_lat=0.01, distance_lon=0.01):
+def point_mesh(polygon, distance_lat=0.01, distance_lon=0.01, crs='epsg:4326'):
     """
     Create a grid of points based on the bounding box of the input polygon.
 
@@ -44,12 +49,12 @@ def point_mesh(polygon, distance_lat=0.01, distance_lon=0.01):
     grid_points = [Point(lon, lat) for lat in latitudes for lon in longitudes]
 
     # Convert the grid points into a GeoDataFrame
-    gdf_grid = gpd.GeoDataFrame(geometry=grid_points)
+    gdf_grid = gpd.GeoDataFrame(geometry=grid_points, crs=crs)
 
     return gdf_grid
 
 
-def delaunay_centroids(vertices):
+def delaunay_centroids(vertices, crs='epsg:4326'):
     """
     Perform Delaunay triangulation on the given vertices and return a GeoDataFrame
     containing the centroids of the Voronoi regions.
@@ -67,12 +72,12 @@ def delaunay_centroids(vertices):
 
     # Centroids of the triangles
     centroids = gdf_triangles['geometry'].centroid
-    gdf_centroids = gpd.GeoDataFrame(geometry=centroids)
+    gdf_centroids = gpd.GeoDataFrame(geometry=centroids, crs=crs)
 
     return gdf_centroids
 
 
-def voronoi_centroids(vertices):
+def voronoi_centroids(vertices, crs='epsg:4326'):
     """
     Perform Voronoi triangulation on the given vertices and return a GeoDataFrame
     containing the centroids of the Voronoi regions.
@@ -92,41 +97,99 @@ def voronoi_centroids(vertices):
 
     # Centroids of the polygons
     centroids = gdf_polygons['geometry'].centroid
-    gdf_centroids = gpd.GeoDataFrame(geometry=centroids)
+    gdf_centroids = gpd.GeoDataFrame(geometry=centroids, crs=crs)
 
     return gdf_centroids
 
-
-def get_vertices(polygon):
+def get_vertices(geom):
     """
-    Extracts the coordinates of the vertices of the given polygon, including both exterior and interior coordinates if present.
-
-    :param polygon: A polygon object from which to extract the vertices.
-    :return: An array of coordinates representing the vertices of the polygon.
+    Extracts the coordinates of the vertices from a Polygon or MultiPolygon.
+    
+    :param geom: A shapely Polygon or MultiPolygon object.
+    :return: A numpy array of all vertex coordinates (x, y).
     """
+    coords = []
 
-    # Extract exterior coordinates
-    exterior_coords = np.array(polygon.exterior.coords)
+    if isinstance(geom, Polygon):
+        # Exterior
+        coords.append(np.array(geom.exterior.coords))
+        # Interiors (holes)
+        for interior in geom.interiors:
+            coords.append(np.array(interior.coords))
 
-    # Extract interior coordinates if present
-    gdf = gpd.GeoDataFrame(geometry=[polygon], crs='epsg:4326')
-    geometry = gdf.geometry[0]
-
-    if len(geometry.interiors) > 0:
-        # Extract interior coordinates
-        interior_coords = np.concatenate([np.array(interior.coords) for interior in polygon.interiors])
-
-        # Combine exterior and interior coordinates
-        all_coords = np.vstack([exterior_coords, interior_coords])
+    elif isinstance(geom, MultiPolygon):
+        for poly in geom.geoms:
+            coords.append(np.array(poly.exterior.coords))
+            for interior in poly.interiors:
+                coords.append(np.array(interior.coords))
 
     else:
-        # Combine exterior coordinates
-        all_coords = exterior_coords
+        raise TypeError("Geometry must be a Polygon or MultiPolygon.")
 
+    # Sloučíme všechny body dohromady do jedné matice
+    all_coords = np.vstack(coords)
     return all_coords
 
+def coords_to_geodf(coords_array, crs='epsg:4326'):
+    """Transform Numpy array with coordinates to GeodataFrame"""
+    
+    points = [Point(xy) for xy in coords_array]
 
-def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=500, n_max_points=10000, **kwargs):
+    # Převedeme na GeoDataFrame
+    gdf = gpd.GeoDataFrame(geometry=points, crs=crs)
+    
+    return gdf
+
+def safe_gpd_concat(gdf_list):
+    """Safe concatenation of GeoDataFrames with the same CRS."""
+    
+    # Check if all GeoDataFrames have the same CRS
+    crs_list = [gdf.crs for gdf in gdf_list]
+    
+    if len(set(crs_list)) != 1:
+        raise ValueError(f"CRS mismatch: {crs_list}")
+    crs = 'epsg:4326' if crs_list[0] is None else crs_list[0]
+    
+    # List of geometries
+    geom_list = [i.geometry for i in gdf_list]
+    
+    # Concatenate GeoDataFrames
+    geometries = pd.concat(geom_list, ignore_index=True)
+    return gpd.GeoDataFrame(geometry=geometries, crs=crs)
+
+def sample_with_min_distance_kdtree(gdf, npoints, min_dist, max_iter=10000):
+    """Select points with distance constrains"""
+    
+    # Převod na metrický CRS, pokud ještě není
+    if not gdf.crs.is_projected:
+        raise ValueError("GeoDataFrame musí být v metrickém souřadnicovém systému (projektovaném CRS).")
+
+    coords = np.array([[geom.x, geom.y] for geom in gdf.geometry])
+    indices = np.random.permutation(len(coords))
+    
+    selected_indices = []
+    selected_coords = []
+
+    attempts = 0
+    for idx in indices:
+        candidate = coords[idx]
+        if selected_coords:
+            tree = KDTree(selected_coords)
+            if tree.query_ball_point(candidate, r=min_dist):
+                # Je příliš blízko k již vybraným bodům
+                attempts += 1
+                if attempts > max_iter:
+                    print("Reached max iterations. Sampled fewer points than requested.")
+                    break
+                continue
+        selected_indices.append(idx)
+        selected_coords.append(candidate)
+        if len(selected_indices) == npoints:
+            break
+
+    return gdf.iloc[selected_indices]    
+
+def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=100, n_max_points=10000, **kwargs):
     """
     Generate points within a polygon with respect of its complexity, and clip them with a buffer zone.
 
@@ -140,25 +203,6 @@ def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=500,
               - The buffer layer in the original coordinate reference system (GeoDataFrame).
     """
 
-    # Simplyfy input polygon
-    polygon_geom = in_gdf_polygon['geometry'][0].simplify(0.00001, preserve_topology=True)
-    gdf_polygon = gpd.GeoDataFrame(geometry=[polygon_geom], crs=in_gdf_polygon.crs)
-
-    # Get the vertices of the polygon
-    vertices = get_vertices(polygon_geom)
-
-    # Get random points
-    gdf_Delaunay_centroids = delaunay_centroids(vertices)
-    gdf_Voronoi_centroids = voronoi_centroids(vertices)
-    gdf_mesh = point_mesh(gdf_polygon)
-
-    # Concatenate all centroids
-    gdf_centroids = gpd.pd.concat([gdf_Delaunay_centroids, gdf_Voronoi_centroids, gdf_mesh], ignore_index=True)
-
-    # Sample centroids for decreasing number of points in the dataset
-    if len(gdf_centroids) > 20000:
-        gdf_centroids = gdf_centroids.sample(20000)
-
     # Create a buffer zone inside the selected water reservoir
     # Get original CRS of the input layer
     try:
@@ -166,26 +210,33 @@ def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=500,
     except:
         epsg_orig = 'epsg:4326'
 
-    # Convert selected layer to UTM CRS
-    epsg_new = in_gdf_polygon.estimate_utm_crs()
-    gdf_polygon_utm = gdf_polygon.to_crs(epsg_new)
+     # Convert selected layer to UTM CRS
+    epsg_utm = in_gdf_polygon.estimate_utm_crs()
+    
+    gdf_polygon_utm = in_gdf_polygon.to_crs(epsg_utm)
 
     # Remove buffer zone of the selected water reservoir
     gdf_buffer_utm = gdf_polygon_utm.buffer(lake_buffer)
+    gdf_buffer_utm = gpd.GeoDataFrame(gdf_buffer_utm, geometry=gdf_buffer_utm.geometry, crs=epsg_utm)
 
-    # Cover the buffer layer to the original CRS
-    gdf_buffer_wgs = gdf_buffer_utm.to_crs(epsg_orig)
-    buffer_wgs_geometry = gdf_buffer_wgs.geometry.iloc[0]
+    # Get geometry from the buffer for the points definition 
+    buffer_geom = gdf_buffer_utm['geometry'][0].simplify(0, preserve_topology=True)  
+    
+    # Get the vertices of the polygon
+    vertices = get_vertices(buffer_geom)
+    
+    # Get random points
+    gdf_vertices = coords_to_geodf(vertices, crs=epsg_utm)
+    gdf_Delaunay_centroids = delaunay_centroids(vertices, crs=epsg_utm)
+    gdf_Voronoi_centroids = voronoi_centroids(vertices, crs=epsg_utm)
+    gdf_mesh = point_mesh(gdf_buffer_utm, distance_lat=100, distance_lon=100, crs=epsg_utm)     
 
-    # Clip centroids with the buffer layer
-    num_processes = os.cpu_count()
-    chunk_size = len(gdf_centroids) // num_processes
-    points_subsets = [gdf_centroids.iloc[i * chunk_size: (i + 1) * chunk_size] for i in range(num_processes)]
-
-    with Pool(num_processes) as pool:
-        results = pool.starmap(points_clip, [(subset, buffer_wgs_geometry) for subset in points_subsets])
-    gdf_centroids_clipped = gpd.GeoDataFrame(pd.concat(results))
-
+    # Concatenate all centroids
+    gdf_centroids = safe_gpd_concat([gdf_Delaunay_centroids, gdf_Voronoi_centroids, gdf_mesh, gdf_vertices])
+    
+    # # Clip centroids with the buffer layer
+    gdf_centroids_clipped = gpd.clip(gdf_centroids, gdf_buffer_utm)
+    
     # Calculate area of the reservoir
     area = gdf_polygon_utm.area.values[0] / 10000
 
@@ -197,16 +248,21 @@ def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=500,
     if n_points <= n_points_km:
         n_points = min(n_points_km, n_centroids_clipped)
     else:
-        n_points = min(n_points, n_centroids_clipped, n_max_points)
+        n_points = min(n_points, n_centroids_clipped, n_max_points)    
 
-    print(f'Number of points for the reservoir: {n_points}')
-
-    # Sample points
-    gdf_centroids_selected = gdf_centroids_clipped.sample(n=n_points)
-    gdf_centroids_selected = gpd.GeoDataFrame(gdf_centroids_selected, geometry='geometry', crs='epsg:4326')
-
-    return gdf_centroids_clipped, gdf_centroids_selected, gdf_buffer_wgs
-
+    # # Sample points
+    gdf_centroids_selected = sample_with_min_distance_kdtree(gdf_centroids_clipped, npoints=n_points, min_dist=20)
+    gdf_centroids_selected = gpd.GeoDataFrame(gdf_centroids_selected, geometry='geometry', crs=epsg_utm)
+    
+    # Transform to WGS84
+    # gdf_centroids_clipped = gdf_centroids_clipped.to_crs(epsg_orig)
+    gdf_centroids_selected = gdf_centroids_selected.to_crs(epsg_orig)
+    # gdf_buffer_wgs = gdf_buffer_utm.to_crs(epsg_orig)
+    # gdf_centroids = gdf_centroids.to_crs(epsg_orig)
+    
+    # print(f'Number of points for the reservoir: {len(gdf_centroids_selected)}')
+    
+    return gdf_centroids_selected
 
 @measure_execution_time
 def get_sampling_points(osm_id, db_name, user, db_table_reservoirs, db_table_points, **kwargs):
@@ -248,14 +304,18 @@ def get_sampling_points(osm_id, db_name, user, db_table_reservoirs, db_table_poi
     sql_query = "SELECT * FROM {db_table} WHERE osm_id = '{osm_id}'".format(osm_id=str(osm_id), db_table=db_table_reservoirs)
     gdf = gpd.read_postgis(sql_query, engine, geom_col='geometry')
     polygon = gpd.GeoDataFrame(gdf, geometry='geometry', crs='epsg:4326')
+    
+    print(polygon)
 
     # Produce random points in the reservoir polygon
-    points_selected = generate_points_in_polygon(polygon, **kwargs)[1]
+    points_selected = generate_points_in_polygon(polygon, **kwargs)
     points_selected['osm_id'] = str(osm_id)  # Add osm_id
     points_selected['PID'] = [i for i in range(len(points_selected))]
 
     # Insert points into the DB table
     points_selected.to_postgis(db_table_points, con=engine, if_exists='append', index=False)
     engine.dispose()
+    
+    print(f'Number of points for the reservoir: {len(points_selected)}')
 
     return points_selected
