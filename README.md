@@ -36,7 +36,8 @@ The source code is available at: https://github.com/JakubBrom/RWQForecast. The s
 The testing web page is available at http://160.217.162.143:8080/ (can be unavailable because the development). The later version will be placed at https://rwqforecast.com $${\color{red}(upcoming)}$$.
 
 >[!NOTE]
->Testing data available for some reservoirs now
+>The system running with the testing prediction model now. Some new models are in debvelopment.
+>The forecasting model is still in development. It will be available ASAP. 
 
 ## Authors and Collaborators
 
@@ -157,7 +158,7 @@ The user selects a reservoir in the application, which is retrieved from the Ope
     
 ### 2. Defining points within the reservoir
     
-The system generates spatial points inside the selected reservoir using OpenStreetMap as a reference. Each point serves as a spatial reference for processing time series data, allowing interpolation to reconstruct the spatial distribution of values for a given time interval. The approach considers the geometric complexity of reservoirs, ensuring that areas such as bays are included in the analysis. The point density is set to 100 points per km², with adjustments for small and large reservoirs. The system randomly selects and processes a maximum of 5,000 points per reservoir to optimise computational efficiency.
+The system generates spatial points inside the selected reservoir using OpenStreetMap as a reference. Each point serves as a spatial reference for processing time series data, allowing interpolation to reconstruct the spatial distribution of values for a given time interval. The approach considers the geometric complexity of reservoirs, ensuring that areas such as bays are included in the analysis. The point density is set to 100 points per km², with adjustments for small and large reservoirs. The system randomly selects and processes a maximum of 10,000 points per reservoir to optimise computational efficiency.
     
 ### 3. Data retrieval
     
