@@ -36,6 +36,7 @@ db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
 db_user_credentials = 'user_credentials'
 db_users = 'users'
 db_models = 'models_table'
+db_points = 'selected_points'
 
 # Set the minimum area of the reservoir
 min_area = 1.0      # TODO: possibly get it from the setting file
@@ -875,10 +876,15 @@ def data_spatial_info():                                # TODO: dodělat!
     date_obj = datetime.strptime(date_str, '%Y-%m-%d')
     formatted_date = date_obj.strftime('%d. %m. %Y')
     
-    # Get Number of points
+    # Get number of points
     query_points = text(f"SELECT COUNT(*) FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date_str}' AND model_id = '{model_id}'")
     df_points = pd.read_sql_query(query_points, db.engine)
     n_points = df_points['count'].values[0]
+    
+    # Get total number of points
+    query_points_tot = text(f"SELECT COUNT(*) FROM {db_points} WHERE osm_id = '{osm_id}';")
+    df_points_tot = pd.read_sql_query(query_points_tot, db.engine)
+    n_points_tot = df_points_tot['count'].values[0]
     
     # Interpolate the data and get the statistics    
     # Get the data for the particular reservoir and date from the DB
@@ -909,7 +915,7 @@ def data_spatial_info():                                # TODO: dodělat!
         {'info': 'Feature', 'val1': feature, 'val2': ''},
         {'info': 'Date', 'val1': formatted_date, 'val2': ''},
         {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},      # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
-        {'info': 'Statistics', 'val1': 'Number of points:', 'val2': str(n_points)},
+        {'info': 'Statistics', 'val1': 'Number of points:', 'val2': str(n_points) + ' (from ' + str(n_points_tot) + ')'},
         {'info': '', 'val1': 'Mean:', 'val2': str(mean)},        
         {'info': '', 'val1': 'Median:', 'val2': str(median)},
         {'info': '', 'val1': 'Max.', 'val2': str(max_val)},
