@@ -4,12 +4,13 @@ function plotSpatialWR(dataUrl, divId){
     // divId: ID divu, do kterého se graf vykreslí
     $(document).ready(function() {
         $('#interp-btn').click(function() {
-            const osm_id = $('#sel_wr').val();
-            const feature = $('#select_wq').val();
+            const osm_id = $('#sel_wr_sp').val();
+            const feature = $('#select_wq_sp').val();
             const date = $('#datepicker').val();
-            const model_id = $('#sel_model').val(); // Přidání model_id pro stažení vektorů
+            const model_id = $('#sel_model_sp').val(); // Přidání model_id pro stažení vektorů
 
             $('#spinner').show();
+            $('#sp_results').show(); // Zobrazení grafu
             $('#controls').show(); // Zobrazení inputu pro zmin a zmax
             $('#downl-vect-text').show(); // Zobrazení textu pro stažení vektorů
             $('#downl-vect').show(); // Zobrazení tlačítka pro stažení vektorů
@@ -91,21 +92,22 @@ function plotSpatialWR(dataUrl, divId){
 
                     const container = document.getElementById(divId);
                     const containerWidth = container.clientWidth;
-                    const aspectRatio = numRows / numCols;
-                    const calculatedHeight = containerWidth * aspectRatio;
+                    const containerHeight = container.clientHeight;
+                    //const aspectRatio = numRows / numCols;
+                    //const calculatedHeight = containerWidth * aspectRatio;
 
                     const layout = {                       
-                        // xaxis: {
-                        //     scaleanchor: 'y', // Ujistí se, že osy x a y mají stejné měřítko
-                        //     constrain: 'domain', // Zachová rozsah osy x
-                        //     title: 'Distance x (pixels)'
-                        //   },
-                        //   yaxis: {
-                        //     constrain: 'domain', // Zachová rozsah osy y
-                        //     title: 'Distance y (pixels)'
-                        //   },
+                        xaxis: {
+                            scaleanchor: 'y', // Ujistí se, že osy x a y mají stejné měřítko
+                            constrain: 'domain', // Zachová rozsah osy x
+                            title: 'Distance x (pixels)'
+                          },
+                          yaxis: {
+                            constrain: 'domain', // Zachová rozsah osy y
+                            title: 'Distance y (pixels)'
+                          },
                         width: containerWidth,
-                        height: calculatedHeight,
+                        height: containerHeight,
                         margin: {
                             l: 30,
                             r: 30,
@@ -229,3 +231,8 @@ function resetPlot() {
     document.getElementById("zmax").value = Math.round(originalZmax);
     updatePlot();  // Aktualizace grafu s výchozími hodnotami
 }
+
+window.addEventListener('resize', () => {
+    const container = document.getElementById('interp_chart');
+    Plotly.Plots.resize(container);
+});
