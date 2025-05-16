@@ -4,6 +4,7 @@ $(document).ready(function() {
         const wr_name = $('#sel_wr option:selected').text();
         $('#wr_selected').val(wr_name);
 
+        $('#ts_results').show();
         $('#downl_ts_text').show();
         $('#downl-ts').show();
         $('#downl-fc').show();
