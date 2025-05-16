@@ -1,9 +1,9 @@
 /* Fonts */
-body {
+html, body {
     font-family: 'Play', sans-serif;
   }
 
-hallowenbody {
+halloweembody {
     font-family: 'Nosifer', sans-serif;
     color: #dc0909;
   }
@@ -122,4 +122,10 @@ hallowenbody {
     #controls .d-flex {
       justify-content: space-between;
     }
+  }
+
+.available-date {
+    background-color: #d4edda !important; /* světle zelená */
+    border-radius: 50% !important;
+    color: black !important;
   }
