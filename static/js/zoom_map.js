@@ -1,10 +1,10 @@
 // Zazoomování mapy na vybraný objekt
-function zoomMapToPolygon(dataUrl){
+function zoomMapToPolygon(dataUrl, selBox){
     // dataUrl: URL pro získání dat z backendu
     // divId: ID divu, do kterého se graf vykreslí
     $(document).ready(function() {
-        $('#sel_wr').change(function() {
-            const osm_id = $('#sel_wr').val();
+        $(selBox).change(function() {
+            const osm_id = $(selBox).val();
 
             $.ajax({
                 url: dataUrl,  // Endpoint na backendu
@@ -27,4 +27,5 @@ function zoomMapToPolygon(dataUrl){
     });
 };
 
-zoomMapToPolygon('/get_bounds')
+zoomMapToPolygon('/get_bounds', '#sel_wr')
+zoomMapToPolygon('/get_bounds', '#sel_wr_sp')

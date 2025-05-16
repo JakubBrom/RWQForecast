@@ -304,8 +304,6 @@ def get_sampling_points(osm_id, db_name, user, db_table_reservoirs, db_table_poi
     sql_query = "SELECT * FROM {db_table} WHERE osm_id = '{osm_id}'".format(osm_id=str(osm_id), db_table=db_table_reservoirs)
     gdf = gpd.read_postgis(sql_query, engine, geom_col='geometry')
     polygon = gpd.GeoDataFrame(gdf, geometry='geometry', crs='epsg:4326')
-    
-    print(polygon)
 
     # Produce random points in the reservoir polygon
     points_selected = generate_points_in_polygon(polygon, **kwargs)

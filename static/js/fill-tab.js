@@ -1,12 +1,12 @@
 // Funkce pro načtení dat z backendu a vložení dat do tabulky
-function loadData(getUrl, tabId, confId) {
+function loadData(getUrl, tabId, confId, selWr, selWq, selModel) {
     $(document).ready(function() {
         $(confId).click(function() {
-            const osm_id = $('#sel_wr').val();
-            const feature = $('#select_wq').val();
-            const wr_name = $('#sel_wr option:selected').text();
+            const osm_id = $(selWr).val();
+            const feature = $(selWq).val();
+            const wr_name = $(selWr + ' option:selected').text();
             const sel_date = $('#datepicker').val();
-            const model_id = $('#sel_model').val();
+            const model_id = $(selModel).val();
 
             $.ajax({
                 url: getUrl, // Endpoint na backendu
@@ -38,5 +38,5 @@ function loadData(getUrl, tabId, confId) {
 }
 
 // Event listener pro tlačítko
-loadData("/data_info", "#tableBody", "#confirm-btn");
-loadData("/data_spatial_info", "#tableBody2", "#interp-btn");
+loadData("/data_info", "#tableBody", "#confirm-btn", "#sel_wr", "#select_wq", "#sel_model");
+loadData("/data_spatial_info", "#tableBody2", "#interp-btn", "#sel_wr_sp", "#select_wq_sp", "#sel_model_sp");
