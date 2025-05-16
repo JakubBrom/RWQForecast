@@ -1,18 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container d-flex justify-content-center align-items-center" style="height: 80vh;"> 
-    <button type="button" class="btn btn-success btn-lg me-sm-2 mb-2" style="width: 250px;" onclick="window.location.href='/select'">
-        Select new waterbody
-    </button>
-    
-    <button type="button" class="btn btn-success btn-lg me-sm-2 mb-2" style="width: 250px;" onclick="window.location.href='/ts_analysis'">
-        Time series analysis
-    </button>
+<div class="container d-flex justify-content-center align-items-center" style="height: 80vh;">
+    <div class="row justify-content-center align-items-center">
+        
+        <button type="button" class="btn btn-success btn-lg me-sm-2 mb-2" style="width: 250px;" onclick="window.location.href='/select'">
+            Select new waterbody
+        </button>
+        
+        <button type="button" class="btn btn-success btn-lg me-sm-2 mb-2" style="width: 250px;" onclick="window.location.href='/ts_analysis'">
+            Time series analysis
+        </button>
 
-    <button type="button" class="btn btn-success btn-lg me-sm-2 mb-2" style="width: 250px;" onclick="window.location.href='/sp_analysis'">
-        Spatial analysis
-    </button>
+        <button type="button" class="btn btn-success btn-lg me-sm-2 mb-2" style="width: 250px;" onclick="window.location.href='/sp_analysis'">
+            Spatial analysis
+        </button>
+    </div>
 </div>
 
 {% endblock%}
