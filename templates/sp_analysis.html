@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div id="flash-messages"></div>
+
+<h1>Spatial distribution analysis</h1>
+
+<div class="container-fluid" style="background-color: rgb(242, 242, 242);">
+    <div class="row">
+
+        <div class="col-12 gy-2 col-lg-3">
+            <h2>Locality and parameters selection</h2>
+
+            <form id="select-results" style="margin-top: 20px;">                   
+                <div class="mb-3">
+                    <label for="res_name_sp" class="form-label">Select reservoir name:</label>
+                    <select class="form-select" id="sel_wr_sp" name="res_name_sp">
+                        <option value="">Select reservoir from the list or from the map</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="wq_feature_sp" class="form-label">Select water quality feature:</label>
+                    <select class="form-select" id="select_wq_sp" name="wq_feature_sp">
+                        <option value="">Select water quality parameter</option>
+                        <option value="ChlA">ChlA</option>
+                        <option value="TSS" disabled>TSS</option>
+                        <option value="PC" disabled>PC</option>
+                        <option value="APC" disabled>APC</option>
+                        <option value="PE" disabled>PE</option>
+                        <option value="ChlB" disabled>ChlB</option>
+                        <option value="CX" disabled>CX</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="model_name_sp" class="form-label">Select prediction model:</label>
+                    <select class="form-select" id="sel_model_sp" name="model_name_sp">
+                        <option value="">Select prediction model</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                <!-- Calendar -->
+                    <label for="datepicker" class="form-label">Select date for analysis:</label>
+                    <input type="text" id="datepicker" name="datepicker" class="form-control" placeholder="Select date">
+                </div>
+            </form>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="button" class="btn btn-primary" id="interp-btn">Confirm selection</button>
+            </div>
+            <div class="d-grid gap-2 mt-4 mb-4">
+                <button type="button" class="btn btn-success" id="update-btn-sp">Update dataset</button>                     
+                <a href="/select" class="btn btn-success" id="new-wr-btn">Add new reservoir</a>
+                <a href="/ts_analysis" class="btn btn-success" id="ts-btn">Time series analysis</a>
+            </div>
+        </div>
+        <!-- Map for reservoir selection -->
+        <div class="col-12 col-lg-9" id="map_result", style="height: 650px;"></div>
+    </div>
+</div>
+
+<div class="container-fluid" id="sp_results" style="display: none;">
+    <div class="row gy-4 mt-4 mb-4">
+        <!-- Levý sloupec: tabulka a tlačítka -->
+        <div class="col-12 col-lg-3">
+            <h2 class="mb-3">Water reservoir statistics</h2>
+
+            <!-- Vykreslení tabulky se statistikou pro daný termín-->
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+
+                    </tr>
+                </thead>
+                <tbody id="tableBody2">
+                </tbody>
+            </table>
+
+            <h4 class="mt-4 mb-3" id="downl-vect-text" style="display: none">Download data</h4>
+            <div class="d-grid gap-2 mb-4">
+                <button type="button" class="btn btn-sm btn-secondary" id="downl-vect" style="display: none">Download vector points</button>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-9">
+
+            <div class="container-fluid">
+                <div class="row g-3 align-items-start">
+                    <!-- Spinner -->
+                    <div id="spinner" class="col-12 col-md-1" style="display: none;">
+                        <div class="loader"></div>
+                    </div>
+                
+                    <!-- Graf -->
+                    <div class="col-12 col-md" id="interp_chart" style="min-width: 250px; width: 100%; height: 1000px;"></div>
+
+                    <!-- Vstupy pro škálu -->
+                    <div class="col-12 col-lg-2" id="controls" style="display: none;">
+                        <h4>Scale settings</h4>
+                        <div class="mb-2">
+                        <label for="zmin" class="form-label">Min:</label>
+                        <input type="number" id="zmin" step="1" class="form-control">
+                        </div>
+                        <div class="mb-2">
+                        <label for="zmax" class="form-label">Max:</label>
+                        <input type="number" id="zmax" step="1" class="form-control">
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="updatePlot()">Update</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="resetPlot()">Reset</button>
+                        </div>
+                    </div> 
+                    
+            
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="static/js/load_wr.js">
+    //Loading the map and the reservoir data for users
+</script>
+
+<script src="static/js/select_wr_to_map.js">
+    // Display the selected reservoir on the map    
+</script>
+
+<script src="static/js/select_models.js">
+    // Načtení dat pro výběr modelu a vložení do selectboxu
+</script>
+
+<script src="static/js/zoom_map.js">
+    // Zoom map to the selected reservoir    
+</script>
+
+<script src="static/js/heatmap.js">
+    // Show an interpolated contourplot for the reservoir    
+</script>
+
+<script src="static/js/add_data_to_fields.js">
+    // Vložení názvu nádrže do inputu #wr_selected ze select boxu #select_wq po kliknutí na tlačítko #confirm-btn
+</script>
+
+<script src="static/js/results_websocket_connect.js">
+    // Připojení k WebSocket serveru
+</script>
+
+<script src="static/js/fill-tab.js">
+    // Načtení dat pro interpolaci a vytvoření grafu s interpolovanými hodnotami    
+</script>
+
+<script src="static/js/download_file.js">
+    // Stažení GeoJson dat pro danou nádrž a datum
+</script>
+
+<script src="static/js/datepicker_fill.js">
+    // Vyznačení kalendáře a datumů, pro které jsou k dispozici data
+</script>
+
+{% endblock%}
