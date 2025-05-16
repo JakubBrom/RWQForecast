@@ -87,6 +87,11 @@ def contacts():
 def gdpr():
     return render_template('gdpr.html')
 
+@main.route("/select_analysis")
+@login_required
+def select_analysis():
+    return render_template('select_analysis.html')
+
 @main.route("/oeo_credentials_howto")
 @login_required
 def oeo_credentials_howto():
@@ -159,7 +164,7 @@ def get_oeo_credentials():
     flash("The OEO Credentials are available now. Try new analysis or add another credentials.", "info")
     
     return render_template("credentials.html")
-    # return redirect(url_for("main.results"))     # TODO: je to ok??
+    # return redirect(url_for("main.ts_analysis"))     # TODO: je to ok??
 
 def get_oeo_key_from_db():
     """ Get the OEO credentials from the DB """
@@ -307,7 +312,7 @@ def run_analysis(osm_id=None, wq_feature=None, model_id=None):
         finally:
             release_lock_key(ckey, status=True)
             
-        return redirect(url_for('main.results'))         # TODO: přesměrovat - kontrola --> možná nebude potřeba
+        return redirect(url_for('main.ts_analysis'))         # TODO: přesměrovat - kontrola --> možná nebude potřeba
     
     else:
         socketio.emit("redirect", {"url": url_for('main.oeo_form', _external=True)}, room=sid)
@@ -392,7 +397,7 @@ def select_waterbody():
 
             # return render_template("select_wr.html")
             socketio.emit("flash_message", {"category": "warning", "message": f"The reservoir {reserv_name} ({osm_id}) is too small for the calculation. Choose another one."}, room=sid)
-            return render_template("select_wr.html")    # redirect(url_for('main.results'))
+            return render_template("select_wr.html")    # redirect(url_for('main.ts_analysis'))         # TODO: přesměrovat - kontrola --> možná nebude potřeba
 
     else:
         print("The reservoir is already in the DB.")
@@ -441,18 +446,22 @@ def select_waterbody():
     
     # Send the info e-mail
     e_subject = 'The forecast has been finished'
-    results_url = url_for('main.results', _external=True)
+    results_url = url_for('main.ts_analysis', _external=True)
     e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has been finished. The results are available at the results page: {results_url}.'
     
     sendInfoEmail(current_user.email, e_subject, e_content)
 
     return render_template("select_wr.html")
 
-@main.route("/results")
+@main.route("/ts_analysis")
 @login_required
-def results():
-    return render_template("results.html")
+def ts_analysis():
+    return render_template("ts_analysis.html")
 
+@main.route("/sp_analysis")
+@login_required
+def sp_analysis():
+    return render_template("sp_analysis.html")
 
 @socketio.on('start_analysis')
 def update_dataset(data):
@@ -485,19 +494,19 @@ def update_dataset(data):
         e_content = f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'
         sendInfoEmail(current_user.email, e_subject, e_content)
 
-        # return render_template("results.html")
+        # return render_template("ts_analysis.html")
 
     # 8. Send info e-mail
     print(f"Sending e-mail to: {current_user.email}")
     
     # Send the info e-mail
     e_subject = 'The forecast has been finished'
-    results_url = url_for('main.results', _external=True)
+    results_url = url_for('main.ts_analysis', _external=True)
     e_content = f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has been finished. The results are available at the results page: {results_url}.'
     
     sendInfoEmail(current_user.email, e_subject, e_content)
     
-    # return render_template("results.html")
+    # return render_template("ts_analysis.html")
 
 @main.route("/add_wr_to_map", methods=['POST'])
 @login_required
@@ -545,12 +554,12 @@ def set_wr_to_selectBox():
         osm_ids = df_osm_ids['osm_id'].tolist()
         
         # 2. Get the water reservoirs from the DB for list of OSM_IDs for the particular user
-        query2 = text("SELECT osm_id, name FROM reservoirs WHERE osm_id IN :osm_ids")                   # Selection of the reservoirs for the particular user
+        query2 = text(f"SELECT osm_id, name FROM {water_reservoirs} WHERE osm_id IN :osm_ids")                   # Selection of the reservoirs for the particular user
         df_data = pd.read_sql_query(query2, db.engine, params={'osm_ids': tuple(osm_ids)})
     
     else:
         # Get the list of OSM_IDs from the DB    
-        df_data = pd.read_sql_query("SELECT DISTINCT osm_id, name FROM reservoirs", db.engine)
+        df_data = pd.read_sql_query(f"SELECT DISTINCT osm_id, name FROM {water_reservoirs}", db.engine)
         
     df_data = df_data.sort_values(by=['name'])
 
@@ -572,8 +581,6 @@ def set_models_to_selectBox():
     
     print(f"Getting the list of models for the reservoir: {osm_id}, feature: {feature}")
     
-    # db_models = "models_smaz"     # XXX: For testing purposes only
-    
     # Get the list of prediction models from the DB
     query = text(f"SELECT * FROM {db_models} WHERE feature = '{feature}'")  # Get the list of OSM_ID from the DB
     df_data = pd.read_sql_query(query, db.engine)
@@ -585,6 +592,38 @@ def set_models_to_selectBox():
     # Convert data to json
     data_json = df_data.to_json(orient='records')
     
+    
+    return jsonify(data_json)
+
+@main.route("/set_models_to_selectBox_existing", methods=['POST'])
+@login_required
+def set_models_to_selectBox_existing():
+    """
+    Get the list of prediction models (model IDs and model names) from the DB and add the list to the selection box.
+    """
+    
+    # Get the data from the request
+    data = request.json
+    osm_id = str(data['osm_id'])
+    feature = data['feature']
+    
+    print(f"Getting the list of models for the reservoir: {osm_id}, feature: {feature}")
+    
+    # Get the list of existing models from the DB
+    query_existing = text(f"SELECT DISTINCT model_id FROM {db_results} WHERE feature = '{feature}'")  # Get the list of OSM_ID from the DB
+    df_existing_models = pd.read_sql_query(query_existing, db.engine)
+    model_ids = df_existing_models['model_id'].tolist()
+    
+    # Get the list of prediction models from the DB model table for existing models
+    query = text(f"SELECT * FROM {db_models} WHERE model_id IN :model_ids")  # Get the list of OSM_ID from the DB
+    df_data = pd.read_sql_query(query, db.engine, params={'model_ids': tuple(model_ids)})
+    
+    # Sort the data
+    df_data = sort_dataframe(df_data, osm_id)
+    df_data = df_data.drop("pkl_file", axis=1)  # Drop the pkl_file column
+    
+    # Convert data to json
+    data_json = df_data.to_json(orient='records')    
     
     return jsonify(data_json)
 
@@ -767,6 +806,28 @@ def contourplot_data():         # TODO: doplnit model_id
     
     # Convert the data to json for the export 
     return jsonify(data)
+
+@main.route("/available-dates", methods=['POST'])
+@login_required
+def available_dates():
+    """
+    Get the list of available dates for the particular reservoir and feature.
+    """
+    
+    # Get the data from the request
+    data = request.json
+    osm_id = data['osm_id']
+    feature = data['feature']
+    model_id = data['model_id']
+    
+    print(f"Getting the list of available dates for the reservoir: {osm_id}, feature: {feature}, model_id: {model_id}")
+
+    # Get the list of available dates from the DB
+    query = text(f"SELECT DISTINCT date FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND model_id = '{model_id}' ORDER BY date")
+    df = pd.read_sql(query, con=db.engine)
+    dates = [d.isoformat() for d in df['date']]
+  
+    return jsonify(dates)        
 
 @main.route("/data_info", methods=['POST'])
 @login_required
