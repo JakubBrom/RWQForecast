@@ -1,4 +1,4 @@
-function selectModels(selectBtn, selectID, selectFeature) {
+function selectModels(selectBtn, selectID, selectFeature, selectModel, routeUrl) {
     // Načtení dat pro výběr modelu v selectboxu
     $(document).ready(function(){
         $(selectBtn).change(function () {
@@ -6,7 +6,7 @@ function selectModels(selectBtn, selectID, selectFeature) {
             const feature = $(selectFeature).val();
 
             $.ajax({
-                url: '/set_models_to_selectBox',
+                url: routeUrl,
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ osm_id: osm_id, feature: feature }),
@@ -15,24 +15,24 @@ function selectModels(selectBtn, selectID, selectFeature) {
                     var data = JSON.parse(data);
 
                     // Vymazání předchozích možností
-                    $('#sel_model').empty() //.append('<option value="">Select prediction model</option>');
+                    $(selectModel).empty() //.append('<option value="">Select prediction model</option>');
 
                     $.each(data, function(index, value) {
                         // Přidání nových možností do select boxu
                         if (value.is_default == true) {                                
                             if (value.osm_id == null) {
-                                $('#sel_model').append('<option value="' + value.model_id + '">' + value.model_name + ' (default)' + '</option>');
+                                $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + ' (default)' + '</option>');
                             }
                             else {
-                                $('#sel_model').append('<option value="' + value.model_id + '">' + value.model_name + ' (OSM_ID: ' + value.osm_id + '; default)' + '</option>');
+                                $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + ' (OSM_ID: ' + value.osm_id + '; default)' + '</option>');
                             }
                         }
                         else {
                             if (value.osm_id == null) {
-                                $('#sel_model').append('<option value="' + value.model_id + '">' + value.model_name + '</option>');
+                                $().append('<option value="' + value.model_id + '">' + value.model_name + '</option>');
                             }
                             else {
-                                $('#sel_model').append('<option value="' + value.model_id + '">' + value.model_name + ' (OSM_ID: ' + value.osm_id + ')' + '</option>');
+                                $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + ' (OSM_ID: ' + value.osm_id + ')' + '</option>');
                             }
                         }
                         
@@ -45,6 +45,9 @@ function selectModels(selectBtn, selectID, selectFeature) {
         });
     });
 }
-selectModels('#sel_wr', '#sel_wr', '#select_wq');
-selectModels('#select_wq', '#sel_wr', '#select_wq');
-selectModels('#sel_wq', '#osm_id', '#sel_wq');
+selectModels('#sel_wr', '#sel_wr', '#select_wq', '#sel_model', '/set_models_to_selectBox');
+selectModels('#select_wq', '#sel_wr', '#select_wq', '#sel_model', '/set_models_to_selectBox');
+selectModels('#sel_wq', '#osm_id', '#sel_wq', '#sel_model','/set_models_to_selectBox');
+
+//selectModels('#sel_wr_sp', '#sel_wr_sp', '#select_wq_sp', '#sel_model_sp', '/set_models_to_selectBox_existing');
+selectModels('#select_wq_sp', '#sel_wr_sp', '#select_wq_sp', '#sel_model_sp', '/set_models_to_selectBox_existing');
