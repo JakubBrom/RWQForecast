@@ -7,18 +7,14 @@ import scipy.signal
 import uuid
 
 import pandas as pd
-
 import numpy as np
 import geopandas as gpd
 
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, text
+from sqlalchemy import exc, text
 from shapely.geometry import Point
 
-from .AIHABs_wrappers import measure_execution_time
 from .get_random_points import get_sampling_points
-from .get_meteo import getLastDateInDB
-
 
 
 def authenticate_OEO():
@@ -28,63 +24,36 @@ def authenticate_OEO():
 
     return connection
 
-def last_access(osm_id, db_name, user, db_access_date, n_days=1):
+def getLastDateInDB(osm_id, db_session, db_table):
     """
-    Get the last access date to CDSE for the reservoir
+    Get last date in db table for particular OSM id
 
     :param osm_id: OSM object id
-    :param db_name: Database name
-    :param user: Database user
-    :param db_access: Database table with access
-    :return: Continue calculation (bool)
+    :param db_sessin: Database session
+    :param db_table: Database table
+    :return: Last date in the database table for particular OSM id
     """
 
-    # Connect to PostGIS
-    engine = create_engine('postgresql://{user}@/{db_name}'.format(user=user, db_name=db_name))
-    
-    # Test if the date for the osm_id exists
-    query = text(f"SELECT EXISTS (SELECT 1 FROM {db_access_date} WHERE osm_id = '{osm_id}')")
-    
-    with engine.connect() as connection:
-        result = connection.execute(query).scalar()
-    
-    # If the date exists, get the last access date and update the date if it is older than today - n_days   
-    if result:
-        query = text("SELECT MAX(date) FROM {db_table} WHERE osm_id = '{osm_id}'".format(db_table=db_access_date, osm_id=osm_id))        
-        
-        today = datetime.now().date()
-        with engine.connect() as connection:
-            last_access = connection.execute(query).scalar()
-        
-        print(last_access)
-        
-        if last_access < today - timedelta(days=n_days):
-            query = text("UPDATE {db_table} SET date = '{today}' WHERE osm_id = '{osm_id}'".format(db_table=db_access_date, today=today, osm_id=osm_id))
-            
-            with engine.connect() as connection:
-                connection.execute(query)
-                connection.commit()
-            
-            continue_calc = True
-        else:
-            continue_calc = False
-            
-    # If the date does not exist, add the date to the table
-    else:
-        query = text("INSERT INTO {db_table} (osm_id, date) VALUES ('{osm_id}', '{today}')".format(db_table=db_access_date, osm_id=osm_id, today=datetime.now().date()))
-        with engine.connect() as connection:
-            connection.execute(query)
-            connection.commit()
-            
-        continue_calc = True
-            
-    engine.dispose()        
+    engine = db_session.get_bind()
 
-    print(f"Continue calculation: {continue_calc}")
+    try:              
+        # Define SQL query
+        sql_query = text("SELECT MAX(date) FROM {db_table} WHERE osm_id = '{osm_id}'".format(
+            osm_id=str(osm_id), db_table=db_table))
 
-    return continue_calc
+        # Running SQL query, conversion to DataFrame
+        df = pd.read_sql(sql_query, engine)
 
-def process_s2_points_OEO(provider_id, client_id, client_secret, osm_id, point_layer, start_date, end_date, db_name, user, db_table, oeo_backend_url="https://openeo.dataspace.copernicus.eu", max_cc=30, cloud_mask=True):
+        # Get last date
+        last_date = df.iloc[0,0]
+
+    except exc.NoSuchTableError:
+        print("The date does not exist in the database. The default value will be set.")
+        last_date = None
+
+    return last_date
+
+def process_s2_points_OEO(client_id, client_secret, osm_id, point_layer, start_date, end_date, db_session, db_table, oeo_backend_url="https://openeo.dataspace.copernicus.eu", max_cc=30, cloud_mask=True):
     """
     The function processes Sentinel-2 satellite data from the Copernicus Dataspace Ecosystem. The function
     retrieves data based on the specified parameters (cloud mask) for randomly selected points within the reservoir (
@@ -97,23 +66,22 @@ def process_s2_points_OEO(provider_id, client_id, client_secret, osm_id, point_l
     :param point_layer: Point layer (GeoDataFrame)
     :param start_date: Start date
     :param end_date: End date
-    :param db_name: Database name
-    :param user: Database user
-    :param db_table: Database table
+    :param db_session: Database session
+    :param db_table: Sentinel-2 bands data database table
     :param max_cc: Maximum cloud cover
     :param cloud_mask: Apply cloud mask
     :return: GeoDataFrame with Sentinel-2 data for the randomly selected points for the defined time period
     """
 
     # Authenticate Open EO account
-    connection = openeo.connect(url=oeo_backend_url)
-    connection.authenticate_oidc_client_credentials(provider_id=provider_id, client_id=client_id, client_secret=client_secret)
+    connection = openeo.connect(url=oeo_backend_url, auto_validate=False)
+    connection.authenticate_oidc_client_credentials(client_id=client_id, client_secret=client_secret)
 
     # Transform input GeoDataFrame layer into json
     points = json.loads(point_layer.to_json())
 
     # Connect to PostGIS
-    engine = create_engine('postgresql://{user}@/{db_name}'.format(user=user, db_name=db_name))
+    engine = db_session.get_bind()
 
     # Get bands names
     collection_info = connection.describe_collection("SENTINEL2_L2A")
@@ -176,7 +144,7 @@ def process_s2_points_OEO(provider_id, client_id, client_secret, osm_id, point_l
         if job.status() == 'finished':
             # Create temporary CSV file
             csv_file = f"{uuid.uuid4()}.csv"
-            csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp', csv_file)       # XXX: přesměrovat do tmp složky
+            csv_path = os.path.join(os.getcwd(), 'cache', csv_file)       # XXX: přesměrovat do tmp složky
 
             # Download the results
             job.get_results().download_file(csv_path)
@@ -191,34 +159,26 @@ def process_s2_points_OEO(provider_id, client_id, client_secret, osm_id, point_l
 
             df = pd.read_csv(csv_path, skip_blank_lines=True)
 
-            print("Data has been downloaded!")
+            print(f"Sentinel-2 data for period from {start_date} to {end_date} has been uploaded to the DB!")
             
 
             print("Writing data to the PostGIS table:")
             # Convert to GeoDataFrame
             if not df.empty:
-                print("DF is not empty")
+                
                 # Convert date do isoformat
                 df['date'] = pd.to_datetime(df['date']).dt.date
 
-                print("Datum ok")
-
                 # Remove missing values
                 df_all = df.dropna(axis=0, how='any')
-
-                print("Dropna ok")
 
                 # Rename columns
                 df_all = df_all.rename(columns={'feature_index': 'PID'})
                 for i in range(0, len(band_list)):
                     df_all = df_all.rename(columns={'avg(band_{})'.format(i): band_list[i]})
 
-                print("Rename ok")
-
                 # Add OSM id
                 df_all['osm_id'] = osm_id
-
-                print("OSM ID ok")
 
                 # Convert to GeoDataFrame
                 latlon = pd.DataFrame(point_layer['PID'])
@@ -228,36 +188,44 @@ def process_s2_points_OEO(provider_id, client_id, client_secret, osm_id, point_l
 
                 geometries = [Point(xy) for xy in zip(df_all['lon'], df_all['lat'])]
                 gdf_out = gpd.GeoDataFrame(df_all, geometry=geometries, crs='epsg:4326')
-
-                print("GeoDataFrame ok")
+                gdf_out.rename(columns={'PID':'pid', 'B01':'b01', 'B02':'b02', 'B03':'b03', 'B04':'b04', 'B05':'b05', 'B06':'b06', 'B07':'b07', 'B08':'b08', 'B8A':'b8a', 'B09':'b09', 'B11':'b11', 'B12':'b12', 'WVP':'wvp', 'AOT':'aot', 'SCL':'scl'}, inplace=True)                
 
                 # Save the results to the database
+                # Check if the db table partition exists for the particular OSM id
+                query = text(f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{db_table}_{osm_id}')")
+                result = db_session.execute(query)
+                table_exists = result.scalar()
+                
+                if not table_exists:
+                    create_part_query = text(f"CREATE TABLE {db_table}_{osm_id} PARTITION OF {db_table} FOR VALUES IN ('{osm_id}');")
+                    db_session.execute(create_part_query)
+                    db_session.commit()
+                
+                # Write to PostGIS
                 gdf_out.to_postgis(db_table, con=engine, if_exists='append', index=False)
-                engine.dispose()
-
-                print(gdf_out.head())
-
-                print("Done!")
+                
+                print('OK')
+                
+            else:
+                print(f'Dataset for time priod from {start_date} to {end_date} is empty.')              
 
             # Remove the temporary file
             print(f"Removing temporary file {csv_file}")
             if os.path.exists(csv_path):
                 os.remove(csv_path)
 
-            print(f"Data for OSM_ID: {osm_id} in the time window {start_date} and {end_date} has been downloaded!")
             return jobid
 
         else:
             print(f"Data are not available.")
-            engine.dispose()
+            
             return jobid
 
     except Exception as e:
         print(e)
         print(f"Data are not available.")
-        engine.dispose()
+        
         return jobid
-
 
 def check_job_error(connection, jobid=None):
     """
@@ -305,9 +273,7 @@ def check_job_error(connection, jobid=None):
         print("Unspecific error... Job ID does not exist")
         return True
 
-
-@measure_execution_time
-def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, user, db_table_reservoirs, db_table_points, db_table_S2_points_data, db_access_date, oeo_backend_url="https://openeo.dataspace.copernicus.eu",
+def get_s2_points_OEO(client_id, client_secret, osm_id, db_session, db_table_reservoirs, db_table_points, db_table_S2_points_data, oeo_backend_url="https://openeo.dataspace.copernicus.eu",
                        start_date=None, end_date=None, n_points_max=10000, **kwargs):
     """
     This function is a wrapper for the get_sentinel2_data function. It calls it with the defined parameters,
@@ -315,12 +281,10 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
 
     :param connection: OpenEO connection
     :param osm_id: OSM water reservoir id
-    :param db_name: Database name
-    :param user: Database user
+    :param db_session: Database session
     :param db_table_reservoirs: Database table with water reservoirs
     :param db_table_points: Database table with points for reservoirs
     :param db_table_S2_points_data: Database table with Sentinel-2 data where the data are stored
-    :param db_table_meteo: Database table with historic meteo data
     :param start_date: Start date
     :param end_date: End date
     :param n_points_max: Maximum number of points for water reservoir
@@ -328,36 +292,27 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
     :return: None
     """
 
-    print("Running the analysis for the reservoir with OSM ID: {osm_id}".format(osm_id=osm_id))
-
-    # Test the last access date
-    continue_calc = last_access(osm_id, db_name, user, db_access_date)
+    print(f"Running the analysis for the reservoir with OSM ID: {osm_id}")
     
-    if not continue_calc:
-        print(f"Data for the reservoir {osm_id} are up to date.")
-        return
-    
-    # Connect to PostGIS
-    engine = create_engine('postgresql://{user}@/{db_name}'.format(user=user, db_name=db_name))
-
     # Get points
-    point_layer = get_sampling_points(osm_id, db_name, user, db_table_reservoirs, db_table_points)
+    point_layer = get_sampling_points(osm_id, db_session, db_table_reservoirs, db_table_points)
 
     # Check if table exists and create new one if not
     query = text(
-        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{tab_name}')".format(
-            tab_name=db_table_S2_points_data))
-
-    with engine.connect() as connection:
-        result = connection.execute(query)
-        exists = result.scalar()
+        f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{db_table_S2_points_data}');")
+    result = db_session.execute(query)
+    exists = result.scalar()
+    
+    print(f"Table {db_table_S2_points_data} exists: {exists}")
 
     # Set start date
     if exists:
         # Get last date from database
-        st_date = getLastDateInDB(osm_id, db_name, user, db_table_S2_points_data)
+        st_date = getLastDateInDB(osm_id, db_session, db_table_S2_points_data)
 
     else:
+        # Create the Sentinel-2 points data table in the DB
+        create_db_table(db_session, db_table_S2_points_data)
         st_date = None
 
     if st_date is not None:
@@ -367,7 +322,7 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
             start_date = '2015-06-01'
 
         st_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-
+    
     # Set end date
     if end_date is None:
         end_date = datetime.now().date()  # Up to today
@@ -375,12 +330,11 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
         end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
 
     if st_date >= end_date:
-        print('Data for period from {st_date} to {end_date} are not available. Data will not be downloaded'.format(st_date=st_date,
-                                                                                            end_date=end_date))
+        print(f'Data for period from {st_date} to {end_date} are not available. Data will not be downloaded')
 
         return
 
-    print('Data for period from {st_date} to {end_date} will be downloaded'.format(st_date=st_date, end_date=end_date))
+    print(f'Data for period from {st_date} to {end_date} will be downloaded')
 
     # Set time windows
     # Create chunks for time series
@@ -403,7 +357,6 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
     date_range = pd.date_range(start=st_date, end=end_date, freq=freq)
     slots = [(date_range[i].date().isoformat(), (date_range[i + 1] - timedelta(days=1)).date().isoformat()) for i in
              range(len(date_range) - 1)]
-    # slots.append((date_range[-1].date().isoformat(), end_date.isoformat()))       # Add last day window
 
     # Get Sentinel-2 data - run the job
     # Loop over the time windows
@@ -418,7 +371,7 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
         while dataset_err:
             try:
                 print(f"Attempt no. {attempt_no} to get Sentinel 2 data.")
-                jobid = process_s2_points_OEO(provider_id, client_id, client_secret, osm_id, point_layer, slots[i][0], slots[i][1], db_name, user, db_table_S2_points_data, oeo_backend_url=oeo_backend_url)
+                jobid = process_s2_points_OEO(client_id, client_secret, osm_id, point_layer, slots[i][0], slots[i][1], db_session, db_table_S2_points_data, oeo_backend_url=oeo_backend_url)
                 print(f"Job ID: {jobid}")
                 dataset_err = False
 
@@ -436,51 +389,36 @@ def get_s2_points_OEO(provider_id, client_id, client_secret, osm_id, db_name, us
                     break
             attempt_no = attempt_no + 1
 
-        print(f"Dataset error: {dataset_err}")
+    return
 
-        if dataset_err:
-            # Split time window to smaller windows
-            warnings.warn(f"Attempt to get Sentinel 2 data failed. The time window will be split to smaller windows", stacklevel=2)
-            st_in_slot = datetime.strptime(slots[i][0], "%Y-%m-%d").date()
-            end_in_slot = datetime.strptime(slots[i][1], "%Y-%m-%d").date()
-            n_days_window = (end_in_slot - st_in_slot).days
-
-            # Split time window to smaller windows (30 days max)
-            if n_days_window > 30:
-                t_delta_window = 30
-            else:
-                t_delta_window = n_days_window
-
-            freq_window = '{tdelta}D'.format(tdelta=t_delta_window)
-            date_range_window = pd.date_range(start=st_in_slot, end=end_in_slot, freq=freq_window)
-            slots_window = [(date_range_window[j].date().isoformat(), (date_range_window[j + 1] - timedelta(
-                days=1)).date().isoformat()) for j in range(len(date_range_window) - 1)]
-            slots_window.append((date_range_window[-1].date().isoformat(), end_in_slot.isoformat()))
-
-            #
-            for slot in range(len(slots_window)):
-                # Attempt to download data in the time windows. If the data are not available, the attempt will be
-                # repeated 5 times. In case of an error, the function will use shorter time windows as a protection
-                # of the missing data. Because there can be some blocks in the server, the function is sleeping for 1
-                # second between attempts.
-
-                print(slots_window[slot][0], slots_window[slot][1])
-
-                max_attempts = 2
-                attempt = 0
-                success = False
-
-                while attempt < max_attempts and not success:
-                    try:
-                        process_s2_points_OEO(connection, osm_id, point_layer, slots_window[slot][0], slots_window[slot][1], db_name, user,
-                                              db_table_S2_points_data)
-                        success = True
-                    except Exception as e:
-                        warnings.warn("Attempt {attempt} failed. Error: {error}".format(attempt=attempt, error=str(e)),
-                                      stacklevel=2)
-                        attempt += 1
-                        time.sleep(1)       # sleep for 1 second because the possibly unblocking the server
-
-    engine.dispose()
-
+def create_db_table(db_session, s2_point_data_table):
+    create_table_query = text(f"""
+    CREATE TABLE IF NOT EXISTS {s2_point_data_table} (        
+        date DATE,
+        pid	bigint,
+        b01	FLOAT,
+        b02	FLOAT,
+        b03	FLOAT,
+        b04	FLOAT,
+        b05	FLOAT,
+        b06	FLOAT,
+        b07	FLOAT,
+        b08	FLOAT,
+        b8a	FLOAT,
+        b09	FLOAT,
+        b11	FLOAT,
+        b12	FLOAT,
+        wvp	FLOAT,
+        aot	FLOAT,
+        scl	FLOAT,
+        osm_id	VARCHAR(50),
+        lat	FLOAT,
+        lon	FLOAT,
+        geometry geometry(Point, 4326)
+    )
+    PARTITION BY LIST (osm_id);
+    """)
+    db_session.execute(create_table_query)
+    db_session.commit()
+    
     return
