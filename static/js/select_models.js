@@ -11,30 +11,15 @@ function selectModels(selectBtn, selectID, selectFeature, selectModel, routeUrl)
                 contentType: 'application/json',
                 data: JSON.stringify({ osm_id: osm_id, feature: feature }),
                 success: function(data) {
-                    console.log('Data for models OK:', data);
                     var data = JSON.parse(data);
+                    // console.log(data);
 
                     // Vymazání předchozích možností
                     $(selectModel).empty() //.append('<option value="">Select prediction model</option>');
 
                     $.each(data, function(index, value) {
                         // Přidání nových možností do select boxu
-                        if (value.is_default == true) {                                
-                            if (value.osm_id == null) {
-                                $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + ' (default)' + '</option>');
-                            }
-                            else {
-                                $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + ' (OSM_ID: ' + value.osm_id + '; default)' + '</option>');
-                            }
-                        }
-                        else {
-                            if (value.osm_id == null) {
-                                $().append('<option value="' + value.model_id + '">' + value.model_name + '</option>');
-                            }
-                            else {
-                                $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + ' (OSM_ID: ' + value.osm_id + ')' + '</option>');
-                            }
-                        }
+                        $(selectModel).append('<option value="' + value.model_id + '">' + value.model_name + (value.is_default ? ' (default)' : '') + (value.osm_id ? ' (OSM_ID: ' + value.osm_id + ')' : '') + '</option>');
                         
                     });
                 },
