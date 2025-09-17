@@ -5,12 +5,11 @@ import geopandas as gpd
 
 from retry_requests import retry
 from sqlalchemy import create_engine, exc, text
-from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta
 import warnings
 
 
-def getHistoricalMeteoData(osm_id, meteo_features, user, db_name, db_table, vect_db_table, time_zone='GMT'):
+def getHistoricalMeteoData(osm_id, meteo_features, db_session, db_table, vect_db_table, time_zone='GMT'):
     """
     Get meteodata from Open-Meteo Historical Weather API and save it to PostGIS database for the particular OSM id and its location. The function fulfill the last data in the database. The time serries is daily from 2015-06-01 till one day before today.
 
@@ -25,14 +24,14 @@ def getHistoricalMeteoData(osm_id, meteo_features, user, db_name, db_table, vect
     """
 
     # Connect to PostGIS
-    engine = create_engine('postgresql://{user}@/{db_name}'.format(user=user, db_name=db_name))
+    engine = db_session.get_bind()
 
     # Get latitude and longitude
-    lat, lon = getLatLon(osm_id, db_name, user, vect_db_table)
+    lat, lon = getLatLon(osm_id, db_session, vect_db_table)
 
     # Getting the last date from database for particular OSM id.
     try:
-        last_db_date = getLastDateInDB(osm_id, db_name, user, db_table)
+        last_db_date = getLastDateInDB(osm_id, db_session, db_table)
 
         if last_db_date == None:
             datum = '2015-06-01'
@@ -41,10 +40,9 @@ def getHistoricalMeteoData(osm_id, meteo_features, user, db_name, db_table, vect
         else:
             # Remove last date from database.
             sql_query = text(f"DELETE FROM {db_table} WHERE osm_id = :val1 AND date = :val2")
-            conn = engine.connect()
-            conn.execute(sql_query, {'val1': str(osm_id), 'val2': last_db_date})
-            conn.commit()
-            conn.close()
+
+            db_session.execute(sql_query, {'val1': str(osm_id), 'val2': last_db_date})
+            db_session.commit()
 
         start_date = last_db_date
 
@@ -102,11 +100,10 @@ def getHistoricalMeteoData(osm_id, meteo_features, user, db_name, db_table, vect
 
     # Save data to PostGIS
     daily_meteo.to_sql(db_table, con=engine, if_exists='append', index=False)
-    engine.dispose()
 
     return
 
-def getPredictedMeteoData(osm_id, meteo_features, user, db_name, db_table_forecast, db_table_reservoirs, forecast_days=10, time_zone='GMT'):
+def getPredictedMeteoData(osm_id, meteo_features, db_session, db_table_forecast, db_table_reservoirs, forecast_days=10, time_zone='GMT'):
     """
     Get meteodata forecast from Open-Meteo Forecast API in daily step for particular OSM object id. The results are
     saved to database.
@@ -127,12 +124,10 @@ def getPredictedMeteoData(osm_id, meteo_features, user, db_name, db_table_foreca
         forecast_days = 16
 
     # Connect to PostGIS
-    engine = create_engine('postgresql://{user}@/{db_name}'.format(user=user, db_name=db_name))
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    engine = db_session.get_bind()
 
     # Get latitude and longitude
-    lat, lon = getLatLon(osm_id, db_name, user, db_table_reservoirs)
+    lat, lon = getLatLon(osm_id, db_session, db_table_reservoirs)
 
     # Setup the Open-Meteo API client with cache and retry on error
     cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
@@ -185,23 +180,24 @@ def getPredictedMeteoData(osm_id, meteo_features, user, db_name, db_table_foreca
             tab_name=db_table_forecast))
 
     # Vykonání dotazu s parametrem
-    with engine.connect() as connection:
-        result = connection.execute(query)
-        exists = result.scalar()
+    # with engine.connect() as connection:
+    #     result = connection.execute(query)
+    #     exists = result.scalar()
+    result = db_session.execute(query)
+    exists = result.scalar()
 
     if exists:
         print("Table {} exists".format(db_table_forecast))
-        session.execute(text("DELETE FROM {db_table} WHERE osm_id = '{osm_id}'".format(db_table=db_table_forecast, osm_id=str(osm_id))))
-        session.commit()
+        db_session.execute(text("DELETE FROM {db_table} WHERE osm_id = '{osm_id}'".format(db_table=db_table_forecast, osm_id=str(osm_id))))
+        db_session.commit()
 
 
     # Save new data to Postgres
     daily_forecast.to_sql(db_table_forecast, con=engine, if_exists='append', index=False)
-    engine.dispose()
 
     return daily_forecast
 
-def getLatLon(osm_id, db_name, user, db_table):
+def getLatLon(osm_id, db_session, db_table):
     """
     Get latitude and longitude from OSM id
 
@@ -213,7 +209,7 @@ def getLatLon(osm_id, db_name, user, db_table):
     """
 
     # Připojení k databázi PostGIS
-    engine = create_engine('postgresql://{}@/{}'.format(user, db_name))
+    engine = db_session.get_bind()
 
     # Get geometry for polygon
     sql_query = text("SELECT * FROM {db_table} WHERE osm_id = '{osm_id}'".format(osm_id=str(osm_id), db_table=db_table))
@@ -221,15 +217,18 @@ def getLatLon(osm_id, db_name, user, db_table):
     gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs='epsg:4326')
 
     # Get latitude and longitude
-    centroid = gdf['geometry'].centroid
-    lon = centroid.x.mean()
-    lat = centroid.y.mean()
+    epsg_new = gdf.estimate_utm_crs()
+    gdf_utm = gdf.to_crs(epsg_new)
 
-    engine.dispose()
+    centroid_utm = gdf_utm['geometry'].centroid
+    centroid_wgs = centroid_utm.to_crs(gdf.crs)
+
+    lon = centroid_wgs.x.mean()
+    lat = centroid_wgs.y.mean()
 
     return lat, lon
 
-def getLastDateInDB(osm_id, db_name, user, db_table):
+def getLastDateInDB(osm_id, db_session, db_table):
     """
     Get last date db table for particular OSM id
 
@@ -242,17 +241,15 @@ def getLastDateInDB(osm_id, db_name, user, db_table):
 
     try:
         # Connect to PostGIS
-        engine = create_engine('postgresql://{}@/{}'.format(user, db_name))
-        connection = engine.connect()
+        engine = db_session.get_bind()
 
         # Define SQL query
         sql_query = text("SELECT MAX(date) FROM {db_table} WHERE osm_id = '{osm_id}'".format(
             osm_id=str(osm_id), db_table=db_table))
 
         # Running SQL query, conversion to DataFrame
-        df = pd.read_sql(sql_query, connection)
-        connection.close()
-        engine.dispose()
+        df = pd.read_sql(sql_query, engine)
+
         last_date = df.iloc[0,0]
 
     except exc.NoSuchTableError:
