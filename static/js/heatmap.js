@@ -1,73 +1,70 @@
 // Načtení dat pro interpolaci a vytvoření heatmapy
 function plotSpatialWR(dataUrl, divId){
-    // dataUrl: URL pro získání dat z backendu
-    // divId: ID divu, do kterého se graf vykreslí
     $(document).ready(function() {
         $('#interp-btn').click(function() {
             const osm_id = $('#sel_wr_sp').val();
             const feature = $('#select_wq_sp').val();
             const date = $('#datepicker').val();
-            const model_id = $('#sel_model_sp').val(); // Přidání model_id pro stažení vektorů
+            const model_id = $('#sel_model_sp').val();
 
             $('#spinner').show();
-            $('#sp_results').show(); // Zobrazení grafu
-            $('#controls').show(); // Zobrazení inputu pro zmin a zmax
-            $('#downl-vect-text').show(); // Zobrazení textu pro stažení vektorů
-            $('#downl-vect').show(); // Zobrazení tlačítka pro stažení vektorů
+            $('#sp_results').show();
+            document.getElementById('sp_results').scrollIntoView({ behavior: 'smooth' });
+            $('#controls').show();
+            $('#downl-vect-text').show();
+            $('#downl-vect').show();
 
             $.ajax({
-                url: dataUrl,  // Endpoint na backendu
+                url: dataUrl,
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ osm_id: osm_id, feature: feature, date: date, model_id: model_id }),
                 success: function(response) {
-                    console.log(response);
-                    const x = response.x;  // Osa X
-                    const y = response.y;  // Osa Y
-                    const z = response.z;  // 2D matice
-                    const m = response.m;   // 2D matice pro masku
+                    const x = response.x;
+                    const y = response.y;
+                    const z = response.z;
+                    const m = response.m;
 
-                    // Definice custom colorscale s úpravou hodnoty 0
                     const customColorscale = [
-                    [0, 'rgb(0, 12, 140)'],
-                    [0.5, 'rgb(228, 245, 104)'],
-                    [1, 'rgb(7, 125, 25)']
-                    ];                    
-
-                    const maskColorScale = [
-                    [0, 'white'],
-                    [1, 'white']
+                        [0, 'rgb(0, 12, 140)'],
+                        [0.5, 'rgb(228, 245, 104)'],
+                        [1, 'rgb(7, 125, 25)']
                     ];
 
-                    // Hodnoty pro zmin a zmax
-                    originalZmin = Math.min(...z.flat()); // Dynamické minimum
-                    originalZmax = Math.max(...z.flat()); // Dynamické maximum
+                    const maskColorScale = [
+                        [0, 'white'],
+                        [1, 'white']
+                    ];
 
-                    // Vykreslení heatmapy/contour mapy
+                    originalZmin = Math.min(...z.flat());
+                    originalZmax = Math.max(...z.flat());
+
                     const mapData = {
                         z: z,
                         x: x,
                         y: y,
-                        //zsmooth: 'best',
-                        //type: 'heatmap',
                         connectgaps: true,
                         type: 'contour',
-                        line:{
+                        line: {
                             smoothing: 0.85,
                             color: 'rgb(150,150,150)'
-                          },
-                        colorscale: customColorscale,                        
-                        zmin: Math.min(...z.flat()), // Dynamické minimum
-                        zmax: Math.max(...z.flat()), // Dynamické maximum
+                        },
+                        colorscale: customColorscale,
+                        zmin: originalZmin,
+                        zmax: originalZmax,
                         name: 'Data',
-                        //zmin: 0,
-                        //zmax: 600,
                         hovertemplate: '%{z:.2f}<extra></extra>',
-                        colorbar:{
-                            title:{text:'Concentration',
-                            side: 'right',   
+                        colorbar: {
+                            title: {
+                                text: 'Concentration',
+                                side: 'bottom'
                             },
-                            len: 0.8,
+                            orientation: 'h',
+                            x: 0.5,
+                            xanchor: 'center',
+                            y: -0.3,
+                            len: 0.5,
+                            thickness: 15
                         }
                     };
 
@@ -77,105 +74,85 @@ function plotSpatialWR(dataUrl, divId){
                         y: y,
                         type: 'contour',
                         colorscale: maskColorScale,
-                        //colorbar: {title: ',a,nm,amsndnm,a'},
-                        //zmin: Math.min(...z.flat()), // Dynamické minimum
-                        //zmax: Math.max(...z.flat()), // Dynamické maximum
                         showscale: false,
                         name: 'Mask',
-                        hoverinfo: 'skip',
+                        hoverinfo: 'skip'
                     };
 
                     const data = [mapData, maskData];
 
-                    const numCols = x.length;
-                    const numRows = y.length;
+                    // Výpočet rozsahů pro centrování a zachování poměru stran
+                    const xMin = Math.min(...x);
+                    const xMax = Math.max(...x);
+                    const yMin = Math.min(...y);
+                    const yMax = Math.max(...y);
+                    const xRange = xMax - xMin;
+                    const yRange = yMax - yMin;
+                    const maxRange = Math.max(xRange, yRange);
+                    const xMid = (xMin + xMax) / 2;
+                    const yMid = (yMin + yMax) / 2;
+                    const adjustedXRange = [xMid - maxRange / 2, xMid + maxRange / 2];
+                    const adjustedYRange = [yMid - maxRange / 2, yMid + maxRange / 2];
 
                     const container = document.getElementById(divId);
                     const containerWidth = container.clientWidth;
                     const containerHeight = container.clientHeight;
-                    //const aspectRatio = numRows / numCols;
-                    //const calculatedHeight = containerWidth * aspectRatio;
 
-                    const layout = {                       
-                        xaxis: {
-                            scaleanchor: 'y', // Ujistí se, že osy x a y mají stejné měřítko
-                            constrain: 'domain', // Zachová rozsah osy x
-                            title: 'Distance x (pixels)'
-                          },
-                          yaxis: {
-                            constrain: 'domain', // Zachová rozsah osy y
-                            title: 'Distance y (pixels)'
-                          },
+                    const layout = {
                         width: containerWidth,
                         height: containerHeight,
                         margin: {
                             l: 30,
                             r: 30,
-                            b: 30,
+                            b: 60,
                             t: 30,
                             pad: 0
                         },
-                        paper_bgcolor: 'rgb(255,255,255,0)',
+                        // paper_bgcolor: 'rgb(0,0,0,0)',
+                        plot_bgcolor: 'white',
+                        xaxis: {
+                            range: adjustedXRange,
+                            scaleanchor: 'y',
+                            constrain: 'domain',
+                            title: 'Distance x (pixels)',
+                            automargin: true
+                        },
+                        yaxis: {
+                            range: adjustedYRange,
+                            constrain: 'domain',
+                            title: 'Distance y (pixels)',
+                            automargin: true
+                        }
                     };
 
                     const config = {
                         responsive: true
-                      };
+                    };
 
-                    //Plotly.newPlot(divId, data, layout);
                     try {
-                        
                         Plotly.purge(divId);
                         Plotly.newPlot(divId, data, layout, config);
 
-                        // Získání hodnot pro zmin a zmax z dat
                         document.getElementById("zmin").value = Math.round(mapData.zmin);
                         document.getElementById("zmax").value = Math.round(mapData.zmax);
-
                     } catch (error) {
-                        console.error("An error during data intepolation:", error);
+                        console.error("An error during data interpolation:", error);
                         displayNoDataMessage(divId);
                     }
                 },
                 error: function(error) {
                     console.error("Chyba při načítání dat:", error);
                     alert(`Chyba při načítání dat: ${error}`);
-
-                    var data = [];
-
-                    var layout = {
-                        annotations: [
-                            {
-                            text: "No Data",
-                            xref: "paper",
-                            yref: "paper",
-                            x: 0.5,
-                            y: 0.5,
-                            showarrow: false,
-                            font: {
-                                size: 24,
-                                color: "gray"
-                            }
-                            }
-                        ],
-                    xaxis: { visible: false },
-                    yaxis: { visible: false },
-                    plot_bgcolor: "white",
-                    paper_bgcolor: 'rgb(255,255,255,0)',
-                    showlegend: false,
-                    };
-
-                    // Zobrazení grafu v HTML elementu s id 'plot'
-                    Plotly.purge(divId);
-                    Plotly.newPlot(divId, data, layout);
+                    displayNoDataMessage(divId);
                 },
-                complete: function() {  
-                    $('#spinner').hide();  // Skryje spinner po načtení
+                complete: function() {
+                    $('#spinner').hide();
                 }
             });
         });
     });
 }
+
 
 plotSpatialWR('/contourplot_data', 'interp_chart');
 
