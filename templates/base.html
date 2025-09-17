@@ -21,11 +21,16 @@
 
     <!-- jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     
     <!-- Font Awesome -->
     <link href="https://fonts.googleapis.com/css2?family=Nosifer:wght@400;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Play:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Butcherman&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
 
     <!-- SocketIO -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
@@ -47,7 +52,7 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
             <div class="navbar-nav">
-                <a class="nav-link active" aria-current="page" href="home">Home</a>
+                <a class="nav-link" href="home">Home</a>
                 {% if current_user.is_authenticated %}
                 <div class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -96,10 +101,9 @@
         <div>
             <hr style="border: none; height: 10px; background: linear-gradient(to right, rgb(2, 83, 189), rgb(5, 179, 5));">
             
-            <div class="container-fluid" style="margin-bottom: 20px;">
-                <p>&copy; 2024 - The AIHABs Consortium</p>
+            <div class="container-fluid">
 
-                <div class="d-flex justify-content-center align-items-center flex-wrap">
+                <div class="d-flex justify-content-center align-items-center flex-wrap mt-3">
                     <img src="static/images/footer/aqpoll.png" height="50" style="margin-right: 20px;">
                     <img src="static/images/footer/horizon.png" height="50" style="margin-right: 20px;">
                     <img src="static/images/footer/jpi_oceans.png" height="50" style="margin-right: 20px;">
@@ -113,6 +117,11 @@
                     <img src="static/images/footer/gfz.png" height="50" style="margin-right: 20px;">
                     <img src="static/images/footer/uam.png" height="50" style="margin-right: 20px;">
                 </div>
+
+                <div class="d-flex justify-content-center align-items-center flex-wrap mt-3">
+                    <p>&copy; 2024 - The AIHABs Consortium & University of South Bohemia in České Budějovice</p>
+                </div> 
+
             </div>
         </div>
     </footer>

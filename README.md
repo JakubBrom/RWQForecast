@@ -134,7 +134,7 @@ For parallel computing, multiple OpenEO credentials can be used, but a single ke
 A table displays information about the reservoir and the dataset after confirmation.
 The time series line chart presents the average, median, and confidence intervals.
 The forecast chart shows a two-week prediction as an interactive line graph $${\color{red}(upcoming)}$$.
-Time series and forecast data can be downloaded as a value table.
+Time series and forecast data can be downloaded as a value table $${\color{red}(upcoming fo forecast)}$$.
             
 The user can display the spatial distribution of values for the selected reservoir. After selection of the particular date of the data acquisition and confirmation, a table with statistics for the reservoir and selected date is generated $${\color{red}(upcoming)}$$ and an interactive graph visualizing the spatial distribution of values across the reservoir is displayed.
 

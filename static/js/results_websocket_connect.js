@@ -19,7 +19,7 @@ function startAnalysis(updateBtn, selWr, selWq, selModel) {
 
         // Automatické skrytí zprávy po 5 sekundách
         setTimeout(function() {
-            flashMessage.fadeOut(500, function() { $(this).remove(); });
+            flashMessage.fadeOut(1000, function() { $(this).remove(); });
         }, 10000);
     });
 
@@ -36,6 +36,8 @@ function startAnalysis(updateBtn, selWr, selWq, selModel) {
             const feature = $(selWq).val();
             const wr_name = $(selWr + ' option:selected').text();
             const model_id = $(selModel).val();
+            // Scrollování na začátek stránky
+            $('html, body').animate({ scrollTop: 0 }, 'fast');
 
             socket.emit("start_analysis", {osm_id: osm_id, feature: feature, wr_name: wr_name, model_id: model_id});
         });

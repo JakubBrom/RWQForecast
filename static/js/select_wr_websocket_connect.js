@@ -18,7 +18,7 @@ socket.on("flash_message", function(data) {
 
     // Automatické skrytí zprávy po 5 sekundách
     setTimeout(function() {
-        flashMessage.fadeOut(500, function() { $(this).remove(); });
+        flashMessage.fadeOut(1000, function() { $(this).remove(); });
     }, 10000);
 });
 

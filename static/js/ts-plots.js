@@ -10,7 +10,7 @@ function plotTimeSeries(dataUrl, divId){
             const model_id = $('#sel_model').val();
 
             $('#ts_chart').show();
-            $('#forecast_chart').show();
+            //$('#forecast_chart').show();
 
             $.ajax({
                 url: dataUrl,  // Endpoint na backendu
@@ -118,4 +118,4 @@ function plotTimeSeries(dataUrl, divId){
 }
 
 plotTimeSeries('/ts_data', 'ts_chart');
-plotTimeSeries('/forecast_data', 'forecast_chart');
+//plotTimeSeries('/forecast_data', 'forecast_chart');

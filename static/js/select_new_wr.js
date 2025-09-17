@@ -149,6 +149,9 @@ document.addEventListener('DOMContentLoaded', function() { // Důležité!
             const firstVertex = vertices[0];
             const model_id = document.getElementById("sel_model").value; // Získání ID modelu z inputu
 
+            //Scrollování na začátek stránky
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
             // Uzavření dialogu IHNED po kliknutí na "Potvrdit"
             prekryti.style.display = "none";
 

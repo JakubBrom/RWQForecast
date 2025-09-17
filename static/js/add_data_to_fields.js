@@ -8,5 +8,6 @@ $(document).ready(function() {
         $('#downl_ts_text').show();
         $('#downl-ts').show();
         $('#downl-fc').show();
+        document.getElementById('ts_results').scrollIntoView({ behavior: 'smooth' });
     });
 });
