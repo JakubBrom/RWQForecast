@@ -13,22 +13,26 @@ function loadData(getUrl, tabId, confId, selWr, selWq, selModel) {
                 method: "POST",
                 contentType: 'application/json',
                 data: JSON.stringify({ osm_id: osm_id, feature: feature, wr_name: wr_name, sel_date: sel_date, model_id: model_id }),
+                
                 success: function(data) {
                     const tableBody = $(tabId);
                     tableBody.empty(); // Smazání stávajícího obsahu tabulky
 
-                    // Iterace přes přijatá data a jejich přidání do tabulky
                     data.forEach(row => {
-                        const tableRow = `
-                            <tr>
-                                <td>${row.info}</td>
-                                <td>${row.val1}</td>
-                                <td>${row.val2}</td>
-                            </tr>
-                        `;
+                        let tableRow = `<tr><td>${row.info}</td>`;
+
+                        if (!row.val2) {
+                            // Pokud val2 je prázdné, spojíme buňky
+                            tableRow += `<td colspan="2">${row.val1}</td>`;
+                        } else {
+                            tableRow += `<td>${row.val1}</td><td>${row.val2}</td>`;
+                        }
+
+                        tableRow += `</tr>`;
                         tableBody.append(tableRow);
                     });
                 },
+
                 error: function(error) {
                     console.error("Error loading data:", error);
                 }
