@@ -1,29 +1,12 @@
-import os
-from re import error
-from warnings import warn
+# -*- coding: utf-8 -*-
 
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from pyproj import CRS
 
 from shapely.geometry import Polygon, Point, MultiPolygon
 from scipy.spatial import Delaunay, Voronoi, KDTree
-from sqlalchemy import create_engine, text
-from multiprocessing import Pool
-try:
-    from .AIHABs_wrappers import measure_execution_time
-except ImportError:
-    from AIHABs_wrappers import measure_execution_time
-
-def points_clip(points, polygon):
-    """
-    Clip points to the polygon
-    :param points: GeoDataFrame with points
-    :param polygon: GeoDataFrame with polygons
-    :return: Clipped points (GeoDataFrame)
-    """
-    return points[points.intersects(polygon)]
+from sqlalchemy import text
 
 
 def point_mesh(polygon, distance_lat=0.01, distance_lon=0.01, crs='epsg:4326'):
@@ -264,44 +247,41 @@ def generate_points_in_polygon(in_gdf_polygon, lake_buffer=-20, n_points_km=100,
     
     return gdf_centroids_selected
 
-@measure_execution_time
-def get_sampling_points(osm_id, db_name, user, db_table_reservoirs, db_table_points, **kwargs):
+def get_sampling_points(osm_id, db_session, db_table_reservoirs, db_table_points, **kwargs):
     """
 
     :param osm_id: OSM object id
-    :param db_name: Database name
-    :param user: Database user
+    :param db_session: Database session
     :param db_table_reservoirs: Database table with water reservoirs polygons
     :param db_table_points: Database table with points for reservoir polygons
     :param kwargs: Additional parameters
     :return: The randomly selected points within the buffer layer of reservoirs (GeoDataFrame). Points for reservoirs are stored in the db_table_points database table.
     """
 
-    # Connect to PostGIS
-    engine = create_engine('postgresql://{user}@/{db_name}'.format(user=user, db_name=db_name))
-
+    # Create a database engine
+    engine = db_session.get_bind()
+    
     # Check if points table exists and create new one if not
-    query = text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{tab_name}')".format(tab_name=db_table_points))
+    query = text(f"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{db_table_points}')")
 
-    with engine.connect() as connection:
-        result = connection.execute(query)
-        exists = result.scalar()
+    result = db_session.execute(query)
+    exists = result.scalar()
 
     if exists:
         # Check if are the data available in the table
-        query = text("SELECT EXISTS (SELECT 1 FROM {db_table} WHERE osm_id = '{osm_id}')".format(db_table=db_table_points, osm_id=str(osm_id)))
-        with engine.connect() as connection:
-            result = connection.execute(query)
-            data_exists = result.scalar()
+        query = text(f"SELECT EXISTS (SELECT 1 FROM {db_table_points} WHERE osm_id = '{osm_id}')")
+
+        result = db_session.execute(query)
+        data_exists = result.scalar()
 
         if data_exists:
-            query = text("SELECT * FROM {db_table} WHERE osm_id = '{osm_id}'".format(db_table=db_table_points, osm_id=str(osm_id)))
+            query = text(f"SELECT * FROM {db_table_points} WHERE osm_id = '{osm_id}'")
             points_selected = gpd.read_postgis(query, engine, geom_col='geometry')
 
             return points_selected
 
     # Get polygon of the reservoir from the DB
-    sql_query = "SELECT * FROM {db_table} WHERE osm_id = '{osm_id}'".format(osm_id=str(osm_id), db_table=db_table_reservoirs)
+    sql_query = text(f"SELECT * FROM {db_table_reservoirs} WHERE osm_id = '{osm_id}'")
     gdf = gpd.read_postgis(sql_query, engine, geom_col='geometry')
     polygon = gpd.GeoDataFrame(gdf, geometry='geometry', crs='epsg:4326')
 
@@ -311,7 +291,7 @@ def get_sampling_points(osm_id, db_name, user, db_table_reservoirs, db_table_poi
     points_selected['PID'] = [i for i in range(len(points_selected))]
 
     # Insert points into the DB table
-    points_selected.to_postgis(db_table_points, con=engine, if_exists='append', index=False)
+    points_selected.to_postgis(db_table_points, con=engine, if_exists='append', index=False)        # pokud tabulka neexistuje, tak by se měla vytvořit
     engine.dispose()
     
     print(f'Number of points for the reservoir: {len(points_selected)}')
