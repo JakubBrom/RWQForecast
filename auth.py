@@ -4,11 +4,17 @@ from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
 import uuid
+import os
 from datetime import datetime
 from .models import Users
 from . import db, mail
+from .get_logs import GetLogs
 
 auth = Blueprint('auth', __name__)
+
+# Set logging for user
+gl = GetLogs()
+gl.logs_path = os.path.join(os.path.dirname(__file__), '..', 'logs')
 
 def get_serializer():
     return URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
@@ -30,15 +36,18 @@ def login_post():
     # take the user-supplied password, hash it, and compare it to the hashed password in the database
     if not user or not check_password_hash(user.password, password):
         flash('Please check your login details and try again.', "warning")
+        gl.log_message('Please check your login details and try again.', "WARNING")
         return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
 
     if not user.is_verified:
         flash('You need to confirm your email before logging in.', 'warning')
+        gl.log_message('You need to confirm your email before logging in.', 'WARNING')
         return redirect(url_for('auth.resend_confirmation'))
 
     # if the above check passes, then we know the user has the right credentials
     login_user(user, remember=remember)
     next_page = request.args.get('next')
+    gl.log_message('The user has been logged in.')
     return redirect(next_page) if next_page else redirect(url_for('main.index'))
 
 @auth.route('/resend_confirmation', methods=['GET', 'POST'])
@@ -56,6 +65,7 @@ def resend_confirmation():
             mail.send(msg)
 
             flash('A new confirmation email has been sent. Please check your inbox.', 'info')
+            gl.log_message('A new confirmation email has been sent.')
         else:
             flash('If the email exists and is not confirmed, a new confirmation link has been sent.', 'info')
 
@@ -78,12 +88,14 @@ def signup_post():
     
     if password != confirm_password:
         flash('Passwords do not match!')
+        gl.log_message('Password do not match!', 'ERROR')
         return redirect(url_for('auth.signup'))
 
     user = Users.query.filter_by(email=email).first() # if this returns a user, then the email already exists in database
 
     if user: # if a user is found, we want to redirect back to signup page so user can try again
         flash('Email address already exists', "warning")
+        gl.log_message('Email address already exists', 'WARNING')
         return redirect(url_for('auth.signup'))
 
     # create a new user with the form data. Hash the password so the plaintext version isn't saved.
@@ -103,6 +115,7 @@ def signup_post():
     mail.send(msg)
 
     flash('A confirmation email has been sent. Please check your inbox.', 'info')
+    gl.log_message('A confirmation email has been sent.')
     return redirect(url_for('auth.login'))
 
 @auth.route('/confirm/<token>')
@@ -130,7 +143,8 @@ def confirm_email(token):
 @auth.route('/logout')
 @login_required
 def logout():
-    logout_user()
+    gl.log_message(f'User has been logged out.')
+    logout_user()    
     return redirect(url_for('main.index'))
 
 # Password reset request
@@ -149,6 +163,7 @@ def reset_request():
             mail.send(msg)
 
             flash("A password reset link has been sent. Check your e-mail.", 'info')
+            gl.log_message("A password reset link has been sent.")
             return redirect(url_for('auth.login'))                      
         else:
             flash('The email does not exists', 'danger')
@@ -210,6 +225,7 @@ def change_password():
         db.session.commit()
 
         flash('Your password has been updated!', 'success')
+        gl.log_message('Password updated.')
         return redirect(url_for('main.profile'))
 
     return render_template('profile.html')

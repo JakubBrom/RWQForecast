@@ -10,6 +10,9 @@ import numpy as np
 import pandas as pd
 import json
 import subprocess
+import openpyxl
+# import logging
+# from logging.handlers import TimedRotatingFileHandler
 from flask_mail import Message
 from scipy.stats import sem, t
 from rasterio.features import rasterize
@@ -17,22 +20,27 @@ from rasterio.transform import from_origin
 from scipy.ndimage import zoom
 from datetime import datetime, timedelta
 from . import db, mail, socketio
-from .socketio_handlers import connected_users
+
 from cryptography.fernet import Fernet
 import openeo
 from scipy.interpolate import griddata;
 from matplotlib import pyplot as plt
 
+from .socketio_handlers import connected_users
+from .get_logs import GetLogs
 from .static.libs.AIHABs import AIHABs
 
 
 main = Blueprint('main',__name__)
 
+# Settings
+#---------------------------------------------------------------------------------------
+
 # Set OpenEO backend params.
 OPENEO_PROVIDER = 'CDSE'
 OPENEO_BACKEND = "https://openeo.dataspace.copernicus.eu"
 
-# DB tables
+# Set DB tables
 water_reservoirs = 'reservoirs'
 user_reservoirs = 'user_reservoirs'
 db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
@@ -46,7 +54,7 @@ db_access_date = "last_access"
 # Set the minimum area of the reservoir
 min_area = 1.0      # TODO: possibly get it from the setting file
 
-# Paths to services
+# Set paths to services
 # Path to osm service
 osm_service_path = os.path.join(os.path.dirname(__file__), 'services', 'osm_service.py')
 cur_env_path = sys.prefix
@@ -54,67 +62,103 @@ envs_path = os.path.split(cur_env_path)[0]
 env_name = "osm-service"
 osm_env_path = os.path.join(envs_path, env_name, "bin", "python")
 
+# Set logging for user
+gl = GetLogs()
+gl.logs_path = os.path.join(os.path.dirname(__file__), '..', 'logs')
+
+#---------------------------------------------------------------------------------------
+
 @main.route('/')
-def index():
+def index():    
+    # Logging
+    gl.log_message('Now accessed index.html')    
+    
     return render_template('index.html')
 
 @main.route("/profile")
 @login_required
 def profile():
+    # Logging
+    gl.log_message('Now accessed Profile')
+    
     # Get number of OEO client credentials from DB
     query = text(f"SELECT COUNT(*) FROM {db_user_credentials} WHERE user_id = '{current_user.id}';")
-
     n_keys = db.session.execute(query).scalar()
 
     return render_template('profile.html', name=current_user.name, nkeys=n_keys)
 
 @main.route("/home")
 def home():
+    # Logging
+    gl.log_message('Now accessed Home')
+    
     return render_template('index.html')
 
 @main.route("/select")
 @login_required
 def select_wr():
+    # Logging
+    gl.log_message('Now accessed New WR selection')
+    
     return render_template('select_wr.html')
-
-@main.route("/processing")
-@login_required
-def processing():
-    return render_template('processing.html')
 
 @main.route("/about")
 def about():
+    # Logging
+    gl.log_message('Now accessed About page')
+    
     return render_template('about.html')
 
 @main.route("/ackn")
 def acknowledgement():
+    # Logging
+    gl.log_message('Now accessed Acknowledgement')
+    
     return render_template('ackn.html')
 
 @main.route("/contacts")
 def contacts():
+    # Logging
+    gl.log_message('Now accessed Contacts')
+    
     return render_template('contacts.html')
 
 @main.route("/gdpr")
 def gdpr():
+    # Logging
+    gl.log_message('Now accessed GDPR')
+    
     return render_template('gdpr.html')
 
 @main.route("/select_analysis")
 @login_required
 def select_analysis():
+    # Logging
+    gl.log_message('Now accessed Select analysis')
+    
     return render_template('select_analysis.html')
 
 @main.route("/oeo_credentials_howto")
 @login_required
 def oeo_credentials_howto():
+    # Logging
+    gl.log_message('Now accessed OEO Credentials How to')
+    
     return render_template('oeo_howto.html')
 
 @main.route("/oeo_form")
 @login_required
 def oeo_form():
+    # Logging
+    gl.log_message('Now accessed OEO form')
+    
     return render_template("credentials.html")
 
 @main.route("/gallery")
 def gallery():
+    # Logging
+    gl.log_message('Now accessed Gallery')
+    
     abs_path = os.path.dirname(os.path.abspath(__file__))
 
     # Maps
@@ -148,6 +192,9 @@ def get_oeo_credentials():
 
     if not valid:
         flash("The key is not valid. Use another one", "warning")
+        
+        # Logging
+        gl.log_message('CDSE credentials are not valid', 'WARNING')
 
         return render_template("credentials.html")
 
@@ -178,7 +225,6 @@ def get_oeo_credentials():
     flash("The OEO Credentials are available now. Try new analysis or add another credentials.", "info")
 
     return render_template("credentials.html")
-    # return redirect(url_for("main.ts_analysis"))     # TODO: je to ok??
 
 def get_oeo_key_from_db():
     """ Get the OEO credentials from the DB """
@@ -224,6 +270,9 @@ def ckeys_valid(clid, clse, ckey=None):
             # with db.engine.connect() as conn:
             db.session.execute(query)
             db.session.commit()
+            
+            # Logging
+            gl.log_message(f'The credentials for {ckey} are not further valid.', 'WARNING')
 
             flash(f"The credentials for {ckey} are not further valid. They has been removed from the database. Please set new one.", "warning")
 
@@ -237,12 +286,17 @@ def get_available_key():
 
     if keys_exists is None:
         print("No keys found")
+        # Logging
+        gl.log_message('No keys found', 'WARNING')
 
         return # redirect(url_for('main.oeo_form')), 302                    # TODO: správně přesměrovat
         # return render_template("credentials.html")
 
     if keys_available is None:
         print("No keys available - waiting")    # čekat na uvolnění klíče
+        # Logging
+        gl.log_message('No keys available. Waiting...', 'WARNING')
+        
         while True:
             keys_available = get_oeo_key_from_db()[1]
             if keys_available:
@@ -252,9 +306,12 @@ def get_available_key():
         clid, clse, ckey = keys_decrypt(keys_available)
 
         print("Keys available")
+        gl.log_message('Keys available now.')
 
     else:
         print("Keys available")
+        gl.log_message('Keys available')
+        
         clid, clse, ckey = keys_decrypt(keys_available)
         valid = ckeys_valid(clid, clse, ckey)
 
@@ -273,6 +330,7 @@ def release_lock_key(key, status=True):
     db.session.commit()
 
     print(f"The credentials for {key} has been changed to {status}.")
+    gl.log_message(f"The credentials for {key} has been changed to {status}.")
 
     return
 
@@ -319,18 +377,22 @@ def run_analysis(osm_id=None, wq_feature=None, model_id=None):
                 aihabs.db_access_date = db_access_date
 
                 print(f"Starting the calculation for the reservoir: {osm_id}, feature: {wq_feature}, model ID: {model_id}")
+                gl.log_message(f"Starting the calculation for the reservoir: {osm_id}, feature: {wq_feature}, model ID: {model_id}")
 
                 aihabs.run_analyse(db.session)          # TODO: Možná vrátit informaci o úspěchu/neúspěchu a pak podle toho nastavit hlášky
 
                 print("The calculation finished!")       # TODO: doplnit výpis zpráv, odesílání e-mailů atd,
+                gl.log_message("The calculation finished!")
 
                 socketio.emit("flash_message", {"category": "info", "message": f"The calculation for the reservoir {osm_id} has been finished. The results are available at the results page."}, room=sid)
 
         except Exception as e:
             Warning(f"Error during the calculation process: {e}", stacklevel=2)
+            gl.log_message(f"Error during the calculation process: {e}", 'WARNING')
 
         finally:
             release_lock_key(ckey, status=True)
+            gl.log_message('Key lock released.')
 
         return redirect(url_for('main.ts_analysis'))         # TODO: přesměrovat - kontrola --> možná nebude potřeba
 
@@ -343,6 +405,8 @@ def run_analysis(osm_id=None, wq_feature=None, model_id=None):
 @main.route('/select_waterbody', methods=['POST'])
 @login_required
 def select_waterbody():
+    # Logging
+    gl.log_message('Select New WR accessed.')
 
     # Get data from the frontend
     data = request.json
@@ -355,11 +419,7 @@ def select_waterbody():
     model_id = data.get("model_id")             # get model ID from the map
 
     user_id = current_user.get_id()
-    print("User ID je: ", user_id)
     sid = connected_users.get(user_id)
-    print("SID je: ", sid)
-
-    print(lat, lon)
 
     # Get layer from OSMNX for particular OSM_ID and save it to database
     # 1. Check if the reservoir is already in the DB
@@ -371,21 +431,23 @@ def select_waterbody():
 
     # 2. Download a polygon for the particular OSM_ID from the OSMNX
     if not result:
+        gl.log_message(f"The reservoir {reserv_name} ({osm_id}) is not in the DB. Downloading the polygon from OSMNX...")
         print(f"The reservoir {reserv_name} ({osm_id}) is not in the DB. Downloading the polygon from OSMNX...")
        
         # Get data from OSMNX
         try:
             try:
                 gdf = ox.features_from_point((lat, lon), dist=20, tags={"natural": "water"})
-                print(gdf)
-                
+                gl.log_message('The WR polygon downloaded.')
             except Exception as e:
                 print(f"Error during getting the polygon from OSMNX directly: {e}")
-                gdf = get_osm_geometry(env_path=osm_env_path, osm_service_path=osm_service_path, lat=lat, lon=lon, dist=20)                
+                gdf = get_osm_geometry(env_path=osm_env_path, osm_service_path=osm_service_path, lat=lat, lon=lon, dist=20)  
+                gl.log_message('The WR polygon downloaded.')              
                 
             
         except Exception as e:
             print(f"Error during getting the polygon from OSMNX: {e}")
+            gl.log_message(f"Error during getting the polygon ({osm_id}) from OSMNX: {e}")
             socketio.emit("flash_message", {"category": "warning", "message": f"The reservoir {reserv_name} ({osm_id}) is not available from OSMNX. Choose another one."}, room=sid)
 
             return render_template("select_wr.html")
@@ -424,19 +486,22 @@ def select_waterbody():
             gdf_select = gdf_sel_wgs[['osm_id', 'name', 'area', 'geometry']].copy()
 
             # 4. Add the polygon (gdf) to the DB table
-            gdf_select.to_postgis('reservoirs', db.engine, if_exists='append', index=False)
+            gdf_select.to_postgis('reservoirs', db.engine, if_exists='append', index=False)            
+            gl.log_message(f'The polygon for {reserv_name} ({osm_id}) added to the DB.')
 
         else:
             print(f"The reservoir {reserv_name} is too small for the calculation.")
+            gl.log_message(f"The reservoir {reserv_name} ({osm_id}) is too small for the calculation.")
 
             socketio.emit("flash_message", {"category": "warning", "message": f"The reservoir {reserv_name} ({osm_id}) is too small for the calculation. Choose another one."}, room=sid)
             return render_template("select_wr.html") 
 
     else:
         print("The reservoir is already in the DB.")
+        gl.log_message("The reservoir is already in the DB.")
         socketio.emit("flash_message", {"category": "info", "message": f"The reservoir {reserv_name} ({osm_id}) is already in the DB. The data will be updated. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
 
-    # 5. Clear the cache
+    # 5. Clear the cache        # TODO: přesunout jinam...
     try:
         cdir = os.path.dirname(os.path.abspath(__file__))
         cache_path = os.path.join(cdir, "cache")
@@ -444,14 +509,16 @@ def select_waterbody():
     except Exception:
         pass
 
-    # Add the reservoir to the table for current user # TODO: přidat info do DB o tom, že daná nádrž patří k danému uživateli
+    # Add the reservoir to the table for current user
     query_wr_user_exists = text(f"SELECT EXISTS (SELECT * FROM {user_reservoirs} WHERE osm_id = '{osm_id}' AND user_id = '{current_user.id}')")
     try:
         result = db.session.execute(query_wr_user_exists)
         result = result.scalar()
-        print(result)
+        gl.log_message(f'The WR added to the {current_user.id} list')
+
     except exc.SQLAlchemyError as e:
         print(f"Error: {e}")
+        gl.log_message(f"Error: {e}")
         result = False
 
     if not result:
@@ -465,10 +532,12 @@ def select_waterbody():
 
     except Exception as e:
         print(f"Error in the calculation process for {osm_id}: {e}")
+        gl.log_message(f"Error in the calculation process for {osm_id}: {e}", 'ERROR')
         socketio.emit("flash_message", {"category": "warning", "message": f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'}, room=sid)
 
         # Send the info e-mail
         e_subject = 'The forecast has not been finished'
+        gl.log_message(f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.', 'WARNING')
         e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'
         sendInfoEmail(current_user.email, e_subject, e_content)
 
@@ -481,6 +550,7 @@ def select_waterbody():
     e_subject = 'The forecast has been finished'
     results_url = url_for('main.ts_analysis', _external=True)
     e_content = f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has been finished. The results are available at the results page: {results_url}.'
+    gl.log_message(f'The forecast of the {wqf_name} for the reservoir {reserv_name} ({osm_id}) has been finished.')
 
     sendInfoEmail(current_user.email, e_subject, e_content)
 
@@ -499,23 +569,26 @@ def get_osm_geometry(env_path, osm_service_path, lat, lon, dist=20):
         geojson_path = result.stdout.strip()
         print(geojson_path)
         gdf = gpd.read_file(geojson_path)
-        gdf.set_index(["element", "id"], inplace=True)
-        
-        print(gdf)        
+        gdf.set_index(["element", "id"], inplace=True)       
         
         return gdf
     
     except subprocess.CalledProcessError as e:
+        gl.log_message(f"Error: {e.stderr}", 'ERROR')
         return {"error": e.stderr}
 
 @main.route("/ts_analysis")
 @login_required
 def ts_analysis():
+    gl.log_message('TS analysis accessed.')
+    
     return render_template("ts_analysis.html")
 
 @main.route("/sp_analysis")
 @login_required
 def sp_analysis():
+    gl.log_message('SP analysis accessed.')
+    
     return render_template("sp_analysis.html")
 
 @socketio.on('start_analysis')
@@ -537,11 +610,13 @@ def update_dataset(data):
 
         # Send the Flash message
         socketio.emit("flash_message", {"category": "info", "message": f"Your request for water reservoir {reserv_name} ({osm_id}) data update has been accepted. The processing can take a long time (minutes to tens of minutes). We will inform you about the results."}, room=sid)
-
+        gl.log_message(f"Request for water reservoir {reserv_name} ({osm_id}) data update has been accepted.")
+        
         run_analysis(osm_id=osm_id, wq_feature=wq_feature, model_id=model_id)      # Run the calculation process
 
     except Exception as e:
         print(f"Error in the calculation process: {e}")
+        gl.log_message(f"Error in the calculation process: {e}", 'ERROR')
         socketio.emit("flash_message", {"category": "info", "message": f'The forecast of the {wq_feature} for the reservoir {reserv_name} ({osm_id}) has not been finished. The calculation process has failed.'}, room=sid)
 
         # Send the info e-mail
@@ -588,8 +663,9 @@ def add_wr_to_map():
         query = text("SELECT * FROM reservoirs")
         gdf_reservoirs = gpd.read_postgis(query, db.engine, geom_col='geometry')
 
-    # 3. Add the reservoirs to the map
+    # 3. Add the reservoirs to the select list
     json_data = jsonify(json.loads(gdf_reservoirs.to_json()))
+    gl.log_message(f'Reserviors added to the map')
 
     return json_data
 
@@ -619,6 +695,7 @@ def set_wr_to_selectBox():
     df_data = df_data.sort_values(by=['name'])
 
     data_json = df_data.to_json(orient='records')
+    gl.log_message(f'Reserviors added to the select box')
 
     return jsonify(data_json)
 
@@ -646,7 +723,7 @@ def set_models_to_selectBox():
 
     # Convert data to json
     data_json = df_data.to_json(orient='records')
-
+    gl.log_message('Prediction models added to the select box')
 
     return jsonify(data_json)
 
@@ -679,6 +756,7 @@ def set_models_to_selectBox_existing():
 
     # Convert data to json
     data_json = df_data.to_json(orient='records')
+    gl.log_message(f'Prediction models existing in results ({db_results}) added to the select box')
 
     return jsonify(data_json)
 
@@ -716,6 +794,7 @@ def ts_data():
     # Convert the dataframe to JSON
     data_json = aggregated.to_json(orient='records')
     data_json = json.loads(data_json)
+    gl.log_message(f'Time serries for {osm_id} and model for {feature} ({model_id}) added to the TS plot.')
 
     return jsonify({'data': data_json})
 
@@ -752,6 +831,8 @@ def forecast_data():            # TODO: Přesměrovat na správnou tabulku
     # Convert the dataframe to JSON
     data_json = aggregated.to_json(orient='records')
     data_json = json.loads(data_json)
+    
+    gl.log_message(f'Time serries forecast for {osm_id} and model for {feature} ({model_id}) added to the TS forecast plot.')
 
     return jsonify({'data': data_json})
 
@@ -769,6 +850,7 @@ def contourplot_data():         # TODO: doplnit model_id
     model_id = data['model_id']
 
     print(f"Interpolating the data for the reservoir: {osm_id}, feature: {feature}, date: {date}")
+    gl.log_message(f"Interpolating the data for the reservoir: {osm_id}, feature: {feature}, date: {date}")
 
     # Test if tere is a data for the particular reservoir and date
     query = text(f"SELECT EXISTS (SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND date = '{date}' AND model_id = '{model_id}')")  # Get the time series data for the particular reservoir
@@ -777,10 +859,12 @@ def contourplot_data():         # TODO: doplnit model_id
         result = result.scalar()
     except exc.SQLAlchemyError as e:
         print(f"Error: {e}")
+        gl.log_message(f"Error: {e}", 'ERROR')
         result = False
 
     if not result:
         print(f"No data for the reservoir {osm_id} and date {date}.")
+        gl.log_message(f"No data for the reservoir {osm_id} and date {date}.", 'WARNING')
         return jsonify({"error": "No data for the reservoir and date."}), 400
 
     # Get the data for the particular reservoir and date from the DB
@@ -859,6 +943,7 @@ def contourplot_data():         # TODO: doplnit model_id
         'z': cleaned_lyrs[0],
         'm': cleaned_lyrs[1]}
 
+    gl.log_message('Data added to the contour plot.')
     # Convert the data to json for the export
     return jsonify(data)
 
@@ -876,6 +961,7 @@ def available_dates():
     model_id = data['model_id']
 
     print(f"Getting the list of available dates for the reservoir: {osm_id}, feature: {feature}, model_id: {model_id}")
+    gl.log_message(f"Getting the list of available dates for the reservoir: {osm_id}, feature: {feature}, model_id: {model_id}")
 
     # Get the list of available dates from the DB
     query = text(f"SELECT DISTINCT date FROM {db_results} WHERE osm_id = '{osm_id}' AND feature = '{feature}' AND model_id = '{model_id}' ORDER BY date")
@@ -899,6 +985,7 @@ def data_info():                                # TODO: dodělat! --> přidat od
     model_id = data['model_id']
 
     if not osm_id:
+        gl.log_message("Info about WR: No osm_id provided", 'ERROR')
         return jsonify({"error": "No osm_id provided"}), 400
 
     # Get area from DB
@@ -981,6 +1068,7 @@ def data_info():                                # TODO: dodělat! --> přidat od
         {'info': '', 'val1': 'Valid for reservoir:', 'val2': osm_id_model},
     ]
 
+    gl.log_message(f'Info data for WR added to the info table: Model name: {model_name}, test accuracy: {test_accuracy}, is_default: {is_default}, osm_id: {osm_id_model}')
     return jsonify(data)
 
 @main.route("/data_spatial_info", methods=['POST'])
@@ -1011,6 +1099,12 @@ def data_spatial_info():                                # TODO: dodělat!
     query_points_tot = text(f"SELECT COUNT(*) FROM {db_points} WHERE osm_id = '{osm_id}';")
     df_points_tot = pd.read_sql_query(query_points_tot, db.engine)
     n_points_tot = df_points_tot['count'].values[0]
+    
+    # Get the prediction model data
+    query_model = text(f"SELECT model_name FROM {db_models} WHERE model_id = '{model_id}'")
+    df_model = pd.read_sql_query(query_model, db.engine)
+
+    model_name = df_model.iloc[0, 0]
 
     # Interpolate the data and get the statistics
     # Get the data for the particular reservoir and date from the DB
@@ -1024,8 +1118,10 @@ def data_spatial_info():                                # TODO: dodělat!
     # Interpolation of the data
     try:
         grid_lin_masked = interpolate_data(gdf_data, gdf_wr, fvalue='feature_value', mask=False)
+        gl.log_message(f'Interpolation for WR {osm_id}, {feature}, date {date_str} and model ID {model_id} is OK')
     except Exception as e:
         print(f"Error in the interpolation: {e}")
+        gl.log_message(f"Error in the interpolation: {e}", 'ERROR')
         return jsonify({"error": "Interpolation failed."}), 500
 
     # Get the statistics
@@ -1040,7 +1136,7 @@ def data_spatial_info():                                # TODO: dodělat!
         {'info': 'OSM_ID', 'val1': osm_id, 'val2': ''},
         {'info': 'Feature', 'val1': feature, 'val2': ''},
         {'info': 'Date', 'val1': formatted_date, 'val2': ''},
-        {'info': 'Model', 'val1': 'Name:', 'val2': 'AI_model_test_3'},      # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
+        {'info': 'Model', 'val1': 'Name:', 'val2': model_name},      # TODO: doplnit ID modelu a podrobnosti k modelu (možná i odkaz na model a jeho popis)
         {'info': 'Statistics', 'val1': 'Number of points:', 'val2': str(n_points) + ' (from ' + str(n_points_tot) + ')'},
         {'info': '', 'val1': 'Mean:', 'val2': str(mean)},
         {'info': '', 'val1': 'Median:', 'val2': str(median)},
@@ -1049,6 +1145,7 @@ def data_spatial_info():                                # TODO: dodělat!
         {'info': '', 'val1': 'SD', 'val2': str(stdev)},
     ]
 
+    gl.log_message(f'Info data for WR {wr_name} ({osm_id}) added to the spatial info table. Feature: {feature}, Model name: {model_name} ({model_id})')
     return jsonify(tab_data)
 
 @main.route('/get_wqfeature_info', methods=['POST'])
@@ -1140,6 +1237,8 @@ def download_ts():
     filepath = os.path.join(cache_dir, file_name)
 
     aggregated.to_excel(filepath, sheet_name=f"{wr_name}_{feature}", index=False)
+    
+    gl.log_message(f'TS data for {wr_name} ({osm_id}), feature: {feature}, model ID {model_id} downloaded.')
 
     return send_file(
         filepath,
@@ -1169,6 +1268,8 @@ def download_gpkg():
     file_name = f"{wr_name}_{osm_id}_{feature}_{date}.gpkg"
     filepath = os.path.join(cache_dir, file_name)
     gdf_data.to_file(filepath, driver='GPKG', layer='data')
+    
+    gl.log_message(f'Point data for {wr_name} ({osm_id}), feature: {feature}, date: {date}, model ID {model_id} downloaded.')
 
     return send_file(
         filepath,
@@ -1210,6 +1311,7 @@ def delete_account():
     db.session.commit()
 
     print("User account has been deleted.")
+    gl.log_message("User account has been deleted.")
 
     return redirect(url_for('main.index'))
 
