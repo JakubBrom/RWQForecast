@@ -1,13 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, session
+from flask import Blueprint, render_template, redirect, url_for, request, flash, current_app, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message
+import jwt
 from itsdangerous import URLSafeTimedSerializer
 import uuid
 import os
-from datetime import datetime
-from .models import Users
+from datetime import datetime, timedelta, timezone
 from . import db, mail
+from .models import Users
 from .get_logs import GetLogs
 
 auth = Blueprint('auth', __name__)
@@ -25,7 +26,7 @@ def login():
 
 @auth.route('/login', methods=['POST'])
 def login_post():
-    # login code goes here
+    # Get username and password
     email = request.form.get('email')
     password = request.form.get('password')
     remember = True if request.form.get('remember') else False
@@ -49,6 +50,37 @@ def login_post():
     next_page = request.args.get('next')
     gl.log_message('The user has been logged in.')
     return redirect(next_page) if next_page else redirect(url_for('main.index'))
+
+@auth.route('/api/login', methods=['POST'])
+def api_login():
+    # Get user name and password
+    data = request.get_json()
+    email = data['email']
+    password = data['password']
+    
+    user = Users.query.filter_by(email=email).first()
+    
+    # Check the password
+    if not user or not check_password_hash(user.password, password):
+        flash('Please check your login details and try again.', "warning")
+        gl.log_message('Not valid credentials for API access.', "WARNING")
+        return jsonify({"msg": "The user credentials are not valid. E-mail or password incorrect."}), 401 # if the user doesn't exist or password is wrong, reload the page
+
+    if not user.is_verified:
+        flash('You need to confirm your email before logging in.', 'warning')
+        gl.log_message('The e-mail not confirmed.', 'WARNING')
+        return jsonify({"msg": "The E-mail need to be confirmed before logging in."}), 401    
+    
+    # Make token for user
+    payload = {
+        'user_id': user.id,
+        'exp': datetime.now(timezone.utc) + timedelta(minutes=30),
+        'iat': datetime.now(timezone.utc)
+        }
+
+    token = jwt.encode(payload, current_app.secret_key, algorithm='HS256')
+    gl.log_message(f"The user {user.id} has been logged in to the REST API.")
+    return jsonify({'access_token': token})
 
 @auth.route('/resend_confirmation', methods=['GET', 'POST'])
 def resend_confirmation():
