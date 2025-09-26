@@ -177,7 +177,7 @@ def predict_feature_values(db_session, model_id, db_models, gdf_s2data):
     service_env_path = os.path.join(envs_path, env_name, "bin", "python")
     
     # Get service path
-    models_service_path = os.path.join(os.getcwd(), 'RWQForecast', 'services', 'pred_models_service.py')
+    models_service_path = os.path.join(os.getcwd(), 'RWQForecast', 'static', 'services', 'pred_models_service.py')
     
     # Run the service using subprocess
     try:
