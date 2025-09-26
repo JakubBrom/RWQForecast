@@ -1,40 +1,41 @@
 from flask import request, jsonify, render_template, redirect, flash, url_for, Blueprint, current_app, session, Response, send_file
 from flask_login import login_required, current_user
-from sqlalchemy import exc, text
-import osmnx as ox
-import geopandas as gpd
+from flask_mail import Message
+
 import os
 import sys
 import time
-import numpy as np
-import pandas as pd
 import json
 import subprocess
-import openpyxl
-# import logging
-# from logging.handlers import TimedRotatingFileHandler
-from flask_mail import Message
-from scipy.stats import sem, t
+
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import openeo
+import osmnx as ox
+
+from sqlalchemy import exc, text
+from datetime import datetime, timedelta
+from cryptography.fernet import Fernet
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
-from scipy.ndimage import zoom
-from datetime import datetime, timedelta
-from . import db, mail, socketio
 
-from cryptography.fernet import Fernet
-import openeo
-from scipy.interpolate import griddata;
-from matplotlib import pyplot as plt
+from scipy.interpolate import griddata
+from scipy.ndimage import zoom
+from scipy.stats import sem, t
 
 from .socketio_handlers import connected_users
 from .get_logs import GetLogs
+from .auth_utils import token_required
 from .static.libs.AIHABs import AIHABs
 
-
-main = Blueprint('main',__name__)
+from . import db, mail, socketio
 
 # Settings
 #---------------------------------------------------------------------------------------
+
+main = Blueprint('main',__name__)
+
 
 # Set OpenEO backend params.
 OPENEO_PROVIDER = 'CDSE'
@@ -43,12 +44,12 @@ OPENEO_BACKEND = "https://openeo.dataspace.copernicus.eu"
 # Set DB tables
 water_reservoirs = 'reservoirs'
 user_reservoirs = 'user_reservoirs'
-db_results = "wq_points_results"        # TODO: Změnit na imputovaná data!!!
+db_results = "wq_points_results"
 db_user_credentials = 'user_credentials'
 db_users = 'users'
 db_models = 'models_table'
 db_points = 'selected_points'
-db_s2_points = 'sentinel2_data_points'   # db_bands_table
+db_s2_points = 'sentinel2_data_points'
 db_access_date = "last_access"
 
 # Set the minimum area of the reservoir
@@ -56,7 +57,7 @@ min_area = 1.0      # TODO: possibly get it from the setting file
 
 # Set paths to services
 # Path to osm service
-osm_service_path = os.path.join(os.path.dirname(__file__), 'services', 'osm_service.py')
+osm_service_path = os.path.join(os.path.dirname(__file__), 'static', 'services', 'osm_service.py')
 cur_env_path = sys.prefix
 envs_path = os.path.split(cur_env_path)[0]
 env_name = "osm-service"
@@ -67,6 +68,7 @@ gl = GetLogs()
 gl.logs_path = os.path.join(os.path.dirname(__file__), '..', 'logs')
 
 #---------------------------------------------------------------------------------------
+# Routes
 
 @main.route('/')
 def index():    
@@ -1325,6 +1327,32 @@ def page_not_found(e):
 @main.errorhandler(500)
 def page_not_found(e):
     return render_template("500.html"), 500
+
+#--------------------------------------------------------------------------------------------
+# REST API
+@main.route('/api/get_wqdata', methods=['GET'])
+@token_required
+def get_wqdata(data):
+    '''Download WQ data for particular WR, WQ feature (and model) and time period.'''
+    
+    # Get params
+    osm_id = request.args.get('osm_id')
+    # feature = request.args.get('feature')
+    date_start = request.args.get('date_start')
+    date_end = request.args.get('date_end')
+    model_id = request.args.get('model_id')
+    
+    # Make a request for a data from DB
+    query = text(f"SELECT * FROM {db_results} WHERE osm_id = '{osm_id}' AND model_id = '{model_id}' AND date BETWEEN '{date_start}' and '{date_end}';")
+    gdf_results = gpd.read_postgis(query, db.engine, geom_col='geometry')
+    gdf_results['date'] = gdf_results['date'].astype(str)
+    
+    gdf_dict = json.loads(gdf_results.to_json())
+    
+    return jsonify(gdf_dict)       
+
+#--------------------------------------------------------------------------------------------
+# Funkce
 
 def clear_old_cache(cache_dir, max_age_seconds=3600):
     """
